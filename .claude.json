@@ -1,0 +1,8 @@
+{
+  "mcp_servers": {
+    "compiler-explorer": {
+      "command": "/Users/patrickquist/Documents/ce-mcp/.venv/bin/ce-mcp",
+      "args": ["--config", "./.ce-mcp-config.yaml"]
+    }
+  }
+}
