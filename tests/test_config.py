@@ -29,7 +29,7 @@ class TestConfig:
         assert config.defaults.compiler == "g132"
 
         # Filter defaults
-        assert config.filters.commentOnly is True
+        assert config.filters.commentOnly is False
         assert config.filters.binary is False
         assert config.filters.intel is True
 

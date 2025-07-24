@@ -23,7 +23,7 @@ from .config import Config
     is_flag=True,
     help="Enable verbose logging",
 )
-def main(config_path: Path, verbose: bool):
+def main(config_path: Path, verbose: bool) -> None:
     """Run the Compiler Explorer MCP server."""
     # Set up logging
     logging.basicConfig(

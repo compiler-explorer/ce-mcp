@@ -32,7 +32,7 @@ class CompilerExplorerClient:
             )
         return self.session
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the session."""
         if self.session:
             await self.session.close()
@@ -46,6 +46,7 @@ class CompilerExplorerClient:
         options: str = "",
         get_assembly: bool = False,
         filter_overrides: Optional[Dict[str, bool]] = None,
+        libraries: List[Dict[str, str]] | None = None,
     ) -> Dict[str, Any]:
         """Compile source code."""
         session = await self._get_session()
@@ -132,7 +133,7 @@ class CompilerExplorerClient:
                     ),
                 },
                 "tools": [],
-                "libraries": [],
+                "libraries": libraries or [],
             },
         }
 
@@ -141,7 +142,7 @@ class CompilerExplorerClient:
         try:
             async with session.post(url, json=payload) as response:
                 response.raise_for_status()
-                return await response.json()
+                return await response.json()  # type: ignore[no-any-return]
         except ClientError as e:
             logger.error(f"API request failed: {e}")
             raise
@@ -153,8 +154,9 @@ class CompilerExplorerClient:
         compiler: str,
         options: str = "",
         stdin: str = "",
-        args: List[str] = None,
+        args: List[str] | None = None,
         timeout: int = 5000,
+        libraries: List[Dict[str, str]] | None = None,
     ) -> Dict[str, Any]:
         """Compile and execute source code."""
         session = await self._get_session()
@@ -185,7 +187,7 @@ class CompilerExplorerClient:
                     "debugCalls": self.config.filters.debugCalls,
                 },
                 "tools": [],
-                "libraries": [],
+                "libraries": libraries or [],
             },
         }
 
@@ -194,7 +196,7 @@ class CompilerExplorerClient:
         try:
             async with session.post(url, json=payload) as response:
                 response.raise_for_status()
-                return await response.json()
+                return await response.json()  # type: ignore[no-any-return]
         except ClientError as e:
             logger.error(f"API request failed: {e}")
             raise
@@ -206,23 +208,26 @@ class CompilerExplorerClient:
         compiler: str,
         options: str = "",
         layout: str = "simple",
+        libraries: List[Dict[str, str]] | None = None,
     ) -> str:
         """Create a short link for sharing."""
         session = await self._get_session()
 
         # Build the session configuration
+        compiler_config: Dict[str, Any] = {
+            "id": compiler,
+            "options": options,
+        }
+        if libraries:
+            compiler_config["libraries"] = libraries
+
         session_config = {
             "sessions": [
                 {
                     "id": 1,
                     "language": language,
                     "source": source,
-                    "compilers": [
-                        {
-                            "id": compiler,
-                            "options": options,
-                        }
-                    ],
+                    "compilers": [compiler_config],
                 }
             ],
         }
@@ -233,7 +238,7 @@ class CompilerExplorerClient:
             async with session.post(url, json=session_config) as response:
                 response.raise_for_status()
                 result = await response.json()
-                return result.get("url", "")
+                return str(result.get("url", ""))
         except ClientError as e:
             logger.error(f"Failed to create short link: {e}")
             raise
@@ -246,20 +251,70 @@ class CompilerExplorerClient:
         try:
             async with session.get(url) as response:
                 response.raise_for_status()
-                return await response.json()
+                return await response.json()  # type: ignore[no-any-return]
         except ClientError as e:
             logger.error(f"Failed to get languages: {e}")
             raise
 
-    async def get_compilers(self, language: str) -> List[Dict[str, Any]]:
+    async def get_compilers(
+        self, language: str, include_extended_info: bool = False
+    ) -> List[Dict[str, Any]]:
         """Get list of compilers for a language."""
         session = await self._get_session()
-        url = f"{self.config.api.endpoint}/compilers/{language}"
+
+        # Essential fields for compiler listing with library support info
+        essential_fields = [
+            "id",
+            "name",
+            "lang",
+            "compilerType",
+            "instructionSet",
+            "semver",
+            "group",
+            "groupName",
+            "hidden",
+            "isNightly",
+            "libsArr",
+            "supportsLibraryCodeFilter",
+            "supportsExecute",
+            "supportsBinary",
+            "supportsAsmDocs",
+            "supportsOptOutput",
+        ]
+
+        # Extended fields for detailed compiler information
+        extended_fields = essential_fields + [
+            "tools",
+            "possibleOverrides",
+            "possibleRuntimeTools",
+            "license",
+            "notification",
+            "options",
+            "alias",
+        ]
+
+        fields = extended_fields if include_extended_info else essential_fields
+        fields_param = ",".join(fields)
+
+        url = f"{self.config.api.endpoint}/compilers/{language}?fields={fields_param}"
 
         try:
             async with session.get(url) as response:
                 response.raise_for_status()
-                return await response.json()
+                return await response.json()  # type: ignore[no-any-return]
         except ClientError as e:
             logger.error(f"Failed to get compilers: {e}")
+            raise
+
+    async def get_libraries(self, language: str) -> List[Dict[str, Any]]:
+        """Get list of libraries for a language."""
+        session = await self._get_session()
+        url = f"{self.config.api.endpoint}/libraries/{language}"
+
+        try:
+            async with session.get(url) as response:
+                response.raise_for_status()
+                return await response.json()  # type: ignore[no-any-return]
+        except ClientError as e:
+            logger.error(f"Failed to get libraries: {e}")
             raise

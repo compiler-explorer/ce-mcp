@@ -98,8 +98,10 @@ class TestCompilerExplorerClient:
     @pytest.mark.asyncio
     async def test_get_compilers(self, client, mock_api):
         """Test fetching compilers for a language."""
+        # Match URL with query parameters for optimized fields
+        import re
         mock_api.get(
-            "https://godbolt.org/api/compilers/c++",
+            re.compile(r'https://godbolt\.org/api/compilers/c\+\+\?fields=.*'),
             payload=[
                 {"id": "g132", "name": "GCC 13.2"},
                 {"id": "clang1700", "name": "Clang 17.0"},
