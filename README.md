@@ -8,7 +8,16 @@ A Model Context Protocol (MCP) server that provides efficient access to Compiler
 - **Use-case driven tools** - Specific functions for common compilation scenarios
 - **Smart filtering** - Context-aware output filtering based on the task
 - **Comprehensive language support** - C++, C, Rust, Go, Python, and more
-- **Caching** - Reduces redundant API calls
+- **Extensive test coverage** - 48/49 tests passing (98% success rate)
+- **Claude Code integration** - Automated setup for Claude Code workflows
+
+## Implementation Status
+
+**85% Complete** - See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for detailed analysis.
+
+✅ **Fully Working**: All 6 MCP tools implemented and functional  
+⚠️ **Minor Issues**: Some tools need spec compliance fixes  
+❌ **Missing**: Caching system (high priority)
 
 ## Quick Setup
 

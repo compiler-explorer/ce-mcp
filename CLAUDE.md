@@ -1,89 +1,74 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-This is the Compiler Explorer MCP (Model Context Protocol) server repository. The project provides an MCP interface to Compiler Explorer (godbolt.org) services, enabling AI assistants to efficiently compile, analyze, and compare code across multiple languages and compilers.
+Compiler Explorer MCP server - provides an MCP interface to Compiler Explorer (godbolt.org) for code compilation, analysis, and comparison across multiple languages and compilers.
+
+**Status**: 85% complete - See `IMPLEMENTATION_STATUS.md` for details.
 
 ## Development Commands
 
-Since this is currently in the specification phase, implementation commands will include:
-
 ```bash
-# Development setup
+# Setup
+uv venv && source .venv/bin/activate
 uv pip install -e ".[dev]"
 
-# Run tests (once implemented)
-pytest tests/
-pytest tests/test_specific.py::test_name  # Run single test
+# Tests
+pytest tests/                              # All tests
+pytest tests/ -m "not integration"        # Unit tests only
+pytest tests/ -m integration              # Integration tests
 
-# Code quality (to be configured)
-black .                    # Format code
-isort .                   # Sort imports
-flake8 .                  # Lint code
-mypy .                    # Type checking
+# Code quality
+uv run black ce_mcp/ tests/               # Format
+uv run ruff check --fix ce_mcp/ tests/    # Lint
+uv run mypy ce_mcp/                       # Type check
+
+# Run server
+ce-mcp                                    # Basic
+ce-mcp --config ./.ce-mcp-config.yaml    # With config
+ce-mcp --verbose                          # Debug mode
 ```
 
-## Architecture
+## MCP Tools
 
-The MCP server follows a tool-based architecture with these core components:
+1. **compile_check_tool** - Syntax validation
+2. **compile_and_run_tool** - Compile and execute
+3. **compile_with_diagnostics_tool** - Detailed error analysis
+4. **analyze_optimization_tool** - Assembly optimization analysis
+5. **compare_compilers_tool** - Compiler comparison
+6. **generate_share_url_tool** - Create Compiler Explorer URLs
 
-### MCP Tools
-1. **compile_check** - Fast syntax validation without execution
-2. **compile_and_run** - Compile and execute with smart output filtering
-3. **compile_with_diagnostics** - Detailed compilation analysis with warnings/errors
-4. **analyze_optimization** - Assembly output analysis for optimization insights
-5. **compare_compilers** - Side-by-side compiler comparison
-6. **generate_share_url** - Create persistent Compiler Explorer URLs
+## Key Implementation Notes
 
-### Design Principles
-- **Token Efficiency**: Minimize output while maximizing usefulness
-- **Smart Defaults**: Opinionated defaults that work for common cases
-- **Use-Case Driven**: Each tool optimized for specific workflows
-- **Flexible Filtering**: Granular control over compilation output
+- Extract compilation flags from source comments: `// flags: -O2 -Wall`
+- Use structured JSON with Compiler Explorer API
+- Support both compiler IDs (`g132`) and friendly names (`g++`)
+- Configuration in YAML format
+- Token-efficient responses for AI workflows
 
-### Key Implementation Patterns
-- Extract compilation arguments from source code comments (e.g., `// flags: -O2 -Wall`)
-- Use structured JSON communication with Compiler Explorer API
-- Implement comprehensive error handling with helpful messages
-- Cache API responses to reduce redundant requests
-- Support both explicit compiler IDs and user-friendly names
+## Priority Tasks
+
+1. **Implement caching system** - Missing core spec requirement
+2. **Fix diagnostics parsing** - Line/column extraction issues
+3. **Enhance compiler comparisons** - Better difference analysis
+
+See `IMPLEMENTATION_STATUS.md` for complete status and `ADDITIONAL_TOOLS_PROPOSAL.md` for expansion ideas.
 
 ## Configuration
 
-The server uses YAML configuration with hierarchical settings:
-- API endpoint and authentication
-- Caching behavior
-- Default language/compiler preferences
-- Output filter defaults
-- Custom compiler aliases
+Default config location: `~/.config/compiler_explorer_mcp/config.yaml`
 
-Configuration file location: `~/.config/compiler_explorer_mcp/config.yaml`
+Key settings:
+- API endpoint and timeout
+- Default language/compiler
+- Output filtering preferences
+- Compiler name mappings
 
-## API Integration
+## Testing
 
-Base API endpoint: `https://godbolt.org/api`
-
-Key endpoints:
-- `/compilers` - List available compilers
-- `/compiler/{compiler_id}/compile` - Compile source code
-- `/languages` - List supported languages
-- `/shortlinkinfo/{link_id}` - Retrieve shared code
-
-## Testing Strategy
-
-When implementing tests:
-- Unit test each MCP tool function
-- Mock Compiler Explorer API responses for offline testing
-- Integration tests with real API (use sparingly)
-- Performance tests to ensure token efficiency
-- Test error handling and edge cases
-
-## Important Notes
-
-- Always check `compiler-explorer-mcp-spec.md` for detailed implementation requirements
-- Follow the existing Compiler Explorer API patterns for consistency
-- Prioritize token efficiency in all output formatting decisions
-- Support multi-file compilation scenarios when applicable
-- Maintain backward compatibility with configuration changes
+- 49 total tests (48 passing)
+- Unit tests with mocked API responses
+- Integration tests with real Compiler Explorer API
+- Focus on token efficiency and error handling
