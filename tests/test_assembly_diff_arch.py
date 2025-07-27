@@ -1,6 +1,5 @@
 """Tests for architecture-independent assembly diff functionality."""
 
-import pytest
 from ce_mcp.assembly_diff import (
     extract_instruction,
     extract_function_call,
@@ -55,17 +54,20 @@ class TestArchitectureIndependence:
         """Test function call extraction for different architectures."""
         # x86/x64
         assert extract_function_call("call printf") == "printf"
-        assert extract_function_call("call std::cout::operator<<") == "std::cout::operator<<"
+        assert (
+            extract_function_call("call std::cout::operator<<")
+            == "std::cout::operator<<"
+        )
         assert extract_function_call("call QWORD PTR [rax]") == "indirect_call"
-        
+
         # ARM
         assert extract_function_call("bl printf") == "printf"
         assert extract_function_call("blx r3") == "r3"
-        
+
         # RISC-V / MIPS
         assert extract_function_call("jal printf") == "printf"
         assert extract_function_call("jalr ra, 0(t0)") == "ra, 0(t0)"
-        
+
         # PowerPC
         assert extract_function_call("bl __libc_start_main") == "__libc_start_main"
 
@@ -75,7 +77,9 @@ class TestArchitectureIndependence:
         assert extract_instruction(".section .text") is None  # Directive
         assert extract_instruction("# Comment") is None  # Comment
         assert extract_instruction("") is None  # Empty line
-        assert extract_instruction("verylonginstructionname x, y, z") is None  # Too long
+        assert (
+            extract_instruction("verylonginstructionname x, y, z") is None
+        )  # Too long
 
     def test_arm_vs_x86_diff(self):
         """Test comparing ARM and x86 assembly (different compilers)."""
@@ -88,24 +92,26 @@ add_numbers:
     pop rbp
     ret
 """
-        
+
         arm_asm = """
 add_numbers:
     add r0, r0, r1
     bx lr
 """
-        
+
         diff_result = generate_assembly_diff(x86_asm, arm_asm, "x86-64", "ARM")
         stats = diff_result["statistics"]
-        
+
         # Check that different instruction sets are detected
         assert "push" in stats["unique_instructions_removed"]
         assert "mov" in stats["unique_instructions_removed"]
         assert "pop" in stats["unique_instructions_removed"]
         assert "ret" in stats["unique_instructions_removed"]
-        
-        assert "add" in stats["unique_instructions_added"]  # ARM add is different format
+
+        assert (
+            "add" in stats["unique_instructions_added"]
+        )  # ARM add is different format
         assert "bx" in stats["unique_instructions_added"]
-        
+
         # Check summary shows the significant size difference
         assert "4 lines shorter" in diff_result["summary"]

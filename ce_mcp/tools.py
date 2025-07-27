@@ -481,9 +481,9 @@ async def compare_compilers(
     compilers = arguments["compilers"]
     comparison_type = arguments["comparison_type"]
     libraries = arguments.get("libraries")
-    
+
     # Import assembly diff utilities
-    from .assembly_diff import generate_assembly_diff, extract_function_assembly
+    from .assembly_diff import generate_assembly_diff
 
     client = CompilerExplorerClient(config)
 
@@ -552,8 +552,10 @@ async def compare_compilers(
                 # Extract assembly text
                 asm = result.get("asm", "")
                 if isinstance(asm, list):
-                    asm = '\n'.join(item.get("text", "") for item in asm if isinstance(item, dict))
-                
+                    asm = "\n".join(
+                        item.get("text", "") for item in asm if isinstance(item, dict)
+                    )
+
                 results.append(
                     {
                         "compiler": compiler_id,
@@ -595,7 +597,7 @@ async def compare_compilers(
     # Generate differences summary
     differences = []
     assembly_diff = None
-    
+
     if len(results) >= 2:
         if comparison_type == "assembly":
             # Size comparison
@@ -605,7 +607,7 @@ async def compare_compilers(
                 differences.append(
                     f"{results[1]['compiler']} produces {percent:.0f}% {'smaller' if size_diff > 0 else 'larger'} code"
                 )
-            
+
             # Generate assembly diff
             if "assembly" in results[0] and "assembly" in results[1]:
                 assembly_diff = generate_assembly_diff(
@@ -613,18 +615,18 @@ async def compare_compilers(
                     results[1]["assembly"],
                     label1=f"{results[0]['compiler']} {results[0]['options']}",
                     label2=f"{results[1]['compiler']} {results[1]['options']}",
-                    context=3
+                    context=3,
                 )
-                
+
                 # Add diff summary to differences
                 if assembly_diff and "summary" in assembly_diff:
                     differences.append(assembly_diff["summary"])
-        
+
         elif comparison_type == "execution":
             # Compare execution results
             if results[0].get("execution_result") != results[1].get("execution_result"):
                 differences.append("Execution outputs differ")
-            
+
         elif comparison_type == "diagnostics":
             # Compare warning counts
             warn_diff = results[0]["warnings"] - results[1]["warnings"]
@@ -632,25 +634,26 @@ async def compare_compilers(
                 differences.append(
                     f"{results[1]['compiler']} produces {abs(warn_diff)} {'fewer' if warn_diff > 0 else 'more'} warnings"
                 )
-    
+
     # Remove assembly from results to keep response concise
     for result in results:
         result.pop("assembly", None)
-    
+
     response = {
         "results": results,
         "differences": differences,
     }
-    
+
     # Add assembly diff details if available
     if assembly_diff:
         response["assembly_diff"] = {
             "statistics": assembly_diff["statistics"],
             "summary": assembly_diff["summary"],
             # Include truncated unified diff
-            "unified_diff": '\n'.join(assembly_diff["unified_diff"].splitlines()[:50]) + "\n... (truncated)"
+            "unified_diff": "\n".join(assembly_diff["unified_diff"].splitlines()[:50])
+            + "\n... (truncated)",
         }
-    
+
     return response
 
 

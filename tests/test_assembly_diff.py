@@ -1,6 +1,5 @@
 """Tests for assembly diff functionality."""
 
-import pytest
 from ce_mcp.assembly_diff import (
     extract_function_assembly,
     normalize_assembly,
@@ -32,7 +31,7 @@ helper_function:
         assert main_asm is not None
         assert "main:" in main_asm
         assert "helper_function:" not in main_asm
-        assert main_asm.count('\n') == 5  # 6 lines total
+        assert main_asm.count("\n") == 5  # 6 lines total
 
     def test_normalize_assembly(self):
         """Test assembly normalization."""
@@ -60,7 +59,10 @@ helper_function:
     def test_extract_function_call(self):
         """Test function call extraction."""
         assert extract_function_call("call printf") == "printf"
-        assert extract_function_call("call std::vector<int>::size()") == "std::vector<int>::size()"
+        assert (
+            extract_function_call("call std::vector<int>::size()")
+            == "std::vector<int>::size()"
+        )
         assert extract_function_call("mov eax, 0") is None
         assert extract_function_call("jmp .L2") is None
 
@@ -83,11 +85,11 @@ function1:
     ret
 """
         diff_result = generate_assembly_diff(asm1, asm2, "Version 1", "Version 2")
-        
+
         assert "unified_diff" in diff_result
         assert "statistics" in diff_result
         assert "summary" in diff_result
-        
+
         stats = diff_result["statistics"]
         assert stats["lines_added"] == 2  # xor and leave
         assert stats["lines_removed"] == 2  # mov and pop
@@ -106,9 +108,9 @@ function1:
         }
         lines1 = ["line1", "line2", "line3"]
         lines2 = ["line1", "line2"]
-        
+
         summary = generate_diff_summary(stats, lines1, lines2)
-        
+
         assert "1 lines shorter" in summary
         assert "xor" in summary
         assert "malloc" in summary
@@ -137,7 +139,7 @@ sum_index_loop:
     pop rbp
     ret
 """
-        
+
         # Simplified assembly for range-based loop
         range_loop_asm = """
 sum_range_loop:
@@ -166,25 +168,27 @@ sum_range_loop:
     leave
     ret
 """
-        
+
         diff_result = generate_assembly_diff(
-            index_loop_asm, 
-            range_loop_asm,
-            "Index Loop",
-            "Range Loop"
+            index_loop_asm, range_loop_asm, "Index Loop", "Range Loop"
         )
-        
+
         stats = diff_result["statistics"]
-        
+
         # Check that index loop uses operator[]
         assert "std::vector<int>::operator[]" in stats["unique_calls_removed"]
-        
+
         # Check that range loop uses iterator methods
-        iterator_calls = ["std::vector<int>::begin", "std::vector<int>::end", 
-                         "operator!=", "operator*", "operator++"]
+        iterator_calls = [
+            "std::vector<int>::begin",
+            "std::vector<int>::end",
+            "operator!=",
+            "operator*",
+            "operator++",
+        ]
         for call in stats["unique_calls_added"]:
             assert any(expected in call for expected in iterator_calls)
-        
+
         # Check instruction differences
         assert "lea" in stats["unique_instructions_added"]  # Range loop uses lea
         assert "test" in stats["unique_instructions_added"]  # Range loop uses test
