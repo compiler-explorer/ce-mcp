@@ -100,8 +100,9 @@ class TestCompilerExplorerClient:
         """Test fetching compilers for a language."""
         # Match URL with query parameters for optimized fields
         import re
+
         mock_api.get(
-            re.compile(r'https://godbolt\.org/api/compilers/c\+\+\?fields=.*'),
+            re.compile(r"https://godbolt\.org/api/compilers/c\+\+\?fields=.*"),
             payload=[
                 {"id": "g132", "name": "GCC 13.2"},
                 {"id": "clang1700", "name": "Clang 17.0"},

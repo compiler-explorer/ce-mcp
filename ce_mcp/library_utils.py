@@ -451,7 +451,9 @@ async def resolve_libraries_for_compilation(
         if requested_version == "latest":
             version_id = get_latest_version_id(library["versions"])
         else:
-            resolved_version = resolve_library_version(library["versions"], requested_version)
+            resolved_version = resolve_library_version(
+                library["versions"], requested_version
+            )
             if resolved_version is None:
                 available_versions = [v["version"] for v in library["versions"]]
                 raise LibraryVersionError(

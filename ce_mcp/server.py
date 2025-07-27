@@ -12,6 +12,7 @@ from .tools import (
     analyze_optimization,
     compare_compilers,
     generate_share_url,
+    find_experimental_compilers,
 )
 from .config import Config
 
@@ -230,6 +231,42 @@ async def generate_share_url_tool(
             "options": options,
             "layout": layout,
             "libraries": libraries,
+        },
+        config,
+    )
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+async def find_experimental_compilers_tool(
+    language: str = "c++",
+    proposal: str | None = None,
+    feature: str | None = None,
+    category: str | None = None,
+    show_all: bool = False,
+) -> str:
+    """Find experimental compilers supporting specific proposals or features.
+
+    Args:
+        language: Programming language (default: c++)
+        proposal: Specific proposal number to search for (e.g., 'P3385', '3385')
+        feature: Experimental feature to search for (e.g., 'reflection', 'concepts', 'modules')
+        category: Category to filter by (e.g., 'proposals', 'reflection', 'concepts')
+        show_all: Show all experimental compilers organized by category
+
+    Examples:
+        - Find P3385 compilers: proposal="P3385"
+        - Find reflection compilers: feature="reflection"
+        - Find all proposal compilers: category="proposals"
+        - Show all experimental compilers: show_all=True
+    """
+    result = await find_experimental_compilers(
+        {
+            "language": language,
+            "proposal": proposal,
+            "feature": feature,
+            "category": category,
+            "show_all": show_all,
         },
         config,
     )

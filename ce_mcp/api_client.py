@@ -318,3 +318,19 @@ class CompilerExplorerClient:
         except ClientError as e:
             logger.error(f"Failed to get libraries: {e}")
             raise
+
+    async def get_compiler_version(self, compiler_id: str) -> Dict[str, Any]:
+        """Get deployed version information for a compiler."""
+        session = await self._get_session()
+        url = f"https://api.compiler-explorer.com/get_deployed_exe_version?id={compiler_id}"
+
+        try:
+            async with session.get(url) as response:
+                if response.status == 404:
+                    return {"error": "Version info not available"}
+                response.raise_for_status()
+                result = await response.json()
+                return result  # type: ignore[no-any-return]
+        except ClientError as e:
+            logger.debug(f"Failed to get version for {compiler_id}: {e}")
+            return {"error": str(e)}
