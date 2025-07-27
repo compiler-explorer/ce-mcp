@@ -475,7 +475,81 @@ async def analyze_optimization(
 async def compare_compilers(
     arguments: Dict[str, Any], config: Config
 ) -> Dict[str, Any]:
-    """Compare output across different compilers/options."""
+    """Compare output across different compilers, optimization levels, and options.
+
+    This MCP tool provides comprehensive comparison capabilities for analyzing how
+    different compiler configurations affect code generation and output.
+
+    **Use Cases:**
+    - **Cross-compiler analysis**: Compare GCC vs Clang vs ICC output
+    - **Optimization level comparison**: Compare -O0 vs -O2 vs -O3 effects
+    - **Architecture comparison**: Compare x86 vs ARM vs RISC-V assembly
+    - **Flag impact analysis**: Test effects of -march, -mtune, -ffast-math, etc.
+    - **Code style comparison**: Compare different C++ idioms (loops, algorithms)
+    - **Performance investigation**: Analyze how code changes affect assembly
+
+    **Parameters:**
+    - source: Source code to compile
+    - language: Programming language (c++, c, rust, etc.)
+    - compilers: List of compiler configurations, each with:
+      - id: Compiler identifier (e.g., "g132", "clang1600")
+      - options: Compiler flags (e.g., "-O2 -std=c++17", "-O3 -march=native")
+    - comparison_type: "assembly", "execution", or "diagnostics"
+    - libraries: Optional list of libraries to link
+
+    **Comparison Types:**
+    - **assembly**: Detailed assembly diff with instruction analysis
+    - **execution**: Compare program outputs and execution results
+    - **diagnostics**: Compare compiler warnings and error messages
+
+    **For assembly comparisons, provides:**
+    - Unified diffs showing line-by-line changes
+    - Statistics on instructions added/removed and function calls
+    - Architecture-independent analysis (x86, ARM, RISC-V, MIPS, PowerPC)
+    - Human-readable summaries of key differences
+
+    **Example MCP Tool Calls:**
+
+    Compare optimization levels:
+    ```
+    compare_compilers_tool({
+        "source": "int add(int a, int b) { return a + b; }",
+        "language": "c++",
+        "compilers": [
+            {"id": "g132", "options": "-O0"},
+            {"id": "g132", "options": "-O2"},
+            {"id": "g132", "options": "-O3"}
+        ],
+        "comparison_type": "assembly"
+    })
+    ```
+
+    Compare different compilers:
+    ```
+    compare_compilers_tool({
+        "source": "int main() { return 0; }",
+        "language": "c++",
+        "compilers": [
+            {"id": "g132", "options": "-O2 -std=c++17"},
+            {"id": "clang1600", "options": "-O2 -std=c++17"}
+        ],
+        "comparison_type": "assembly"
+    })
+    ```
+
+    Compare execution results:
+    ```
+    compare_compilers_tool({
+        "source": "#include <iostream>\\nint main() { std::cout << \\"Hello\\"; }",
+        "language": "c++",
+        "compilers": [
+            {"id": "g132", "options": "-O0"},
+            {"id": "g132", "options": "-O2"}
+        ],
+        "comparison_type": "execution"
+    })
+    ```
+    """
     source = arguments["source"]
     language = arguments["language"]
     compilers = arguments["compilers"]
