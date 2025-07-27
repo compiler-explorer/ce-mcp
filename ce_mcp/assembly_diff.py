@@ -309,15 +309,3 @@ def generate_diff_summary(
     return " | ".join(summary_parts)
 
 
-def compare_optimization_levels(
-    source: str, compilers: List[Dict[str, str]], client: Any
-) -> Dict[str, Any]:
-    """Compare assembly across different optimization levels.
-    
-    This is a placeholder function for future optimization level comparison.
-    Currently returns empty results.
-    """
-    # TODO: Implement optimization level comparison
-    # This would compile the source with different optimization levels
-    # and return a comparison of the resulting assembly
-    return {}
