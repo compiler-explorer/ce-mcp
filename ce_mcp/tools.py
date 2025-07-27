@@ -5,6 +5,10 @@ from typing import Any, Dict
 from .config import Config
 from .api_client import CompilerExplorerClient
 from .utils import extract_compile_args_from_source
+from .experimental_utils import (
+    search_experimental_compilers,
+    ExperimentalCompilerFinder,
+)
 
 
 def _collect_all_stderr(result: Dict[str, Any]) -> str:
@@ -477,6 +481,9 @@ async def compare_compilers(
     compilers = arguments["compilers"]
     comparison_type = arguments["comparison_type"]
     libraries = arguments.get("libraries")
+    
+    # Import assembly diff utilities
+    from .assembly_diff import generate_assembly_diff, extract_function_assembly
 
     client = CompilerExplorerClient(config)
 
@@ -542,12 +549,18 @@ async def compare_compilers(
                     get_assembly=True,
                     libraries=resolved_libraries,
                 )
+                # Extract assembly text
+                asm = result.get("asm", "")
+                if isinstance(asm, list):
+                    asm = '\n'.join(item.get("text", "") for item in asm if isinstance(item, dict))
+                
                 results.append(
                     {
                         "compiler": compiler_id,
                         "options": options,
                         "execution_result": "",
-                        "assembly_size": len(result.get("asm", "").splitlines()),
+                        "assembly": asm,  # Store full assembly for diff
+                        "assembly_size": len(asm.splitlines()),
                         "warnings": len(
                             [
                                 d
@@ -581,18 +594,64 @@ async def compare_compilers(
 
     # Generate differences summary
     differences = []
-    if len(results) >= 2 and comparison_type == "assembly":
-        size_diff = results[0]["assembly_size"] - results[1]["assembly_size"]
-        if size_diff != 0:
-            percent = abs(size_diff) / max(results[0]["assembly_size"], 1) * 100
-            differences.append(
-                f"{results[1]['compiler']} produces {percent:.0f}% {'smaller' if size_diff > 0 else 'larger'} code"
-            )
-
-    return {
+    assembly_diff = None
+    
+    if len(results) >= 2:
+        if comparison_type == "assembly":
+            # Size comparison
+            size_diff = results[0]["assembly_size"] - results[1]["assembly_size"]
+            if size_diff != 0:
+                percent = abs(size_diff) / max(results[0]["assembly_size"], 1) * 100
+                differences.append(
+                    f"{results[1]['compiler']} produces {percent:.0f}% {'smaller' if size_diff > 0 else 'larger'} code"
+                )
+            
+            # Generate assembly diff
+            if "assembly" in results[0] and "assembly" in results[1]:
+                assembly_diff = generate_assembly_diff(
+                    results[0]["assembly"],
+                    results[1]["assembly"],
+                    label1=f"{results[0]['compiler']} {results[0]['options']}",
+                    label2=f"{results[1]['compiler']} {results[1]['options']}",
+                    context=3
+                )
+                
+                # Add diff summary to differences
+                if assembly_diff and "summary" in assembly_diff:
+                    differences.append(assembly_diff["summary"])
+        
+        elif comparison_type == "execution":
+            # Compare execution results
+            if results[0].get("execution_result") != results[1].get("execution_result"):
+                differences.append("Execution outputs differ")
+            
+        elif comparison_type == "diagnostics":
+            # Compare warning counts
+            warn_diff = results[0]["warnings"] - results[1]["warnings"]
+            if warn_diff != 0:
+                differences.append(
+                    f"{results[1]['compiler']} produces {abs(warn_diff)} {'fewer' if warn_diff > 0 else 'more'} warnings"
+                )
+    
+    # Remove assembly from results to keep response concise
+    for result in results:
+        result.pop("assembly", None)
+    
+    response = {
         "results": results,
         "differences": differences,
     }
+    
+    # Add assembly diff details if available
+    if assembly_diff:
+        response["assembly_diff"] = {
+            "statistics": assembly_diff["statistics"],
+            "summary": assembly_diff["summary"],
+            # Include truncated unified diff
+            "unified_diff": '\n'.join(assembly_diff["unified_diff"].splitlines()[:50]) + "\n... (truncated)"
+        }
+    
+    return response
 
 
 async def generate_share_url(
@@ -652,3 +711,103 @@ async def generate_share_url(
             "options": options,
         },
     }
+
+
+async def find_experimental_compilers(
+    arguments: Dict[str, Any], config: Config
+) -> Dict[str, Any]:
+    """Find experimental compilers supporting specific proposals or features."""
+    language = arguments.get("language", "c++")
+    proposal = arguments.get("proposal")
+    feature = arguments.get("feature")
+    category = arguments.get("category")
+    show_all = arguments.get("show_all", False)
+
+    client = CompilerExplorerClient(config)
+
+    try:
+        experimental_compilers = await search_experimental_compilers(
+            language=language,
+            client=client,
+            proposal=proposal,
+            feature=feature,
+            category=category,
+            fetch_versions=True,
+        )
+
+        # If no filters provided, categorize all experimental compilers
+        if not any([proposal, feature, category]) or show_all:
+            compilers = await client.get_compilers(language, include_extended_info=True)
+            finder = ExperimentalCompilerFinder()
+            categorized = finder.categorize_compilers(compilers)
+
+            # Fetch version info for all nightly compilers
+            from .experimental_utils import fetch_version_info_for_compilers
+
+            for cat_compilers in categorized.values():
+                await fetch_version_info_for_compilers(cat_compilers, client)
+
+            result: Dict[str, Any] = {
+                "summary": {
+                    "total_experimental": sum(
+                        len(compilers) for compilers in categorized.values()
+                    ),
+                    "categories_found": len(categorized),
+                    "language": language,
+                },
+                "categories": {},
+            }
+
+            for cat_name, cat_compilers in categorized.items():
+                result["categories"][cat_name] = {
+                    "count": len(cat_compilers),
+                    "compilers": [
+                        {
+                            "id": comp.id,
+                            "name": comp.name,
+                            "proposals": comp.proposal_numbers,
+                            "features": comp.features,
+                            "is_nightly": comp.is_nightly,
+                            "description": comp.description,
+                            "version_info": comp.version_info,
+                            "modified": comp.modified,
+                        }
+                        for comp in cat_compilers
+                    ],
+                }
+
+        else:
+            # Return filtered results
+            result = {
+                "summary": {
+                    "total_found": len(experimental_compilers),
+                    "language": language,
+                    "filter_used": proposal or feature or category,
+                },
+                "compilers": [
+                    {
+                        "id": comp.id,
+                        "name": comp.name,
+                        "category": comp.category,
+                        "proposals": comp.proposal_numbers,
+                        "features": comp.features,
+                        "is_nightly": comp.is_nightly,
+                        "description": comp.description,
+                        "version_info": comp.version_info,
+                        "modified": comp.modified,
+                    }
+                    for comp in experimental_compilers
+                ],
+            }
+
+        # Add usage examples
+        if proposal:
+            result["usage_example"] = {
+                "description": f"To use {proposal} features with the found compiler(s)",
+                "example_compilers": [comp.id for comp in experimental_compilers[:3]],
+            }
+
+        return result
+
+    finally:
+        await client.close()
