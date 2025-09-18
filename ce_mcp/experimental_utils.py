@@ -18,6 +18,7 @@ class ExperimentalCompiler:
     description: str
     version_info: Optional[Dict[str, Any]] = None
     modified: Optional[str] = None
+    possible_overrides: Optional[Dict[str, Any]] = None
 
 
 class ExperimentalCompilerFinder:
@@ -101,6 +102,7 @@ class ExperimentalCompilerFinder:
                     name, proposal_numbers, features
                 ),
                 modified=None,  # Will be populated later if nightly
+                possible_overrides=compiler.get("possibleOverrides"),
             )
 
             # Add to appropriate category
@@ -168,6 +170,7 @@ class ExperimentalCompilerFinder:
                             name, proposal_numbers, features
                         ),
                         modified=None,  # Will be populated later if nightly
+                        possible_overrides=compiler.get("possibleOverrides"),
                     )
                 )
 
@@ -214,6 +217,7 @@ class ExperimentalCompilerFinder:
                             compiler.get("name", ""), proposal_numbers, features
                         ),
                         modified=None,  # Will be populated later if nightly
+                        possible_overrides=compiler.get("possibleOverrides"),
                     )
                 )
 
@@ -254,6 +258,7 @@ class ExperimentalCompilerFinder:
                             name, proposal_numbers, features
                         ),
                         modified=None,  # Will be populated later if nightly
+                        possible_overrides=compiler.get("possibleOverrides"),
                     )
                 )
 

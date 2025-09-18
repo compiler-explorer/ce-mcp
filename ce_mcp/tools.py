@@ -849,6 +849,7 @@ async def find_experimental_compilers(
     show_all = arguments.get("show_all", False)
     search_text = arguments.get("search_text")
     ids_only = arguments.get("ids_only", False)
+    include_overrides = arguments.get("include_overrides", False)
 
     def apply_text_filter(compilers_list, search_text):
         """Filter compilers by search text in names and IDs (case-insensitive)."""
@@ -860,11 +861,12 @@ async def find_experimental_compilers(
             if search_lower in comp.id.lower() or search_lower in comp.name.lower()
         ]
 
-    def format_compiler_info(comp, ids_only=False):
-        """Format compiler info with optional ids_only mode."""
+    def format_compiler_info(comp, ids_only=False, include_overrides=False):
+        """Format compiler info with optional ids_only mode and overrides."""
         if ids_only:
             return comp.id
-        return {
+
+        info = {
             "id": comp.id,
             "name": comp.name,
             "proposals": comp.proposal_numbers,
@@ -874,6 +876,12 @@ async def find_experimental_compilers(
             "version_info": comp.version_info,
             "modified": comp.modified,
         }
+
+        # Add possibleOverrides if requested and available
+        if include_overrides and hasattr(comp, 'possible_overrides'):
+            info["possible_overrides"] = comp.possible_overrides
+
+        return info
 
     client = CompilerExplorerClient(config)
 
@@ -914,7 +922,7 @@ async def find_experimental_compilers(
                     result["categories"][cat_name] = {
                         "count": len(filtered_compilers),
                         "compilers": [
-                            format_compiler_info(comp, ids_only)
+                            format_compiler_info(comp, ids_only, include_overrides)
                             for comp in filtered_compilers
                         ],
                     }
@@ -941,9 +949,9 @@ async def find_experimental_compilers(
                 },
                 "compilers": [
                     {
-                        **format_compiler_info(comp, ids_only),
+                        **format_compiler_info(comp, ids_only, include_overrides),
                         "category": comp.category,
-                    } if not ids_only else format_compiler_info(comp, ids_only)
+                    } if not ids_only else format_compiler_info(comp, ids_only, include_overrides)
                     for comp in filtered_experimental
                 ],
             }

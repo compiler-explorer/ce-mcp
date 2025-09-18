@@ -604,6 +604,7 @@ async def find_experimental_compilers_tool(
     show_all: bool = False,
     search_text: str | None = None,
     ids_only: bool = False,
+    include_overrides: bool = False,
 ) -> str:
     """Find experimental compilers supporting specific proposals or features.
 
@@ -615,6 +616,7 @@ async def find_experimental_compilers_tool(
         show_all: Show all experimental compilers organized by category
         search_text: Filter compilers by text search in names and IDs (recommended for token efficiency)
         ids_only: Return only compiler IDs (use sparingly, only when search_text isn't sufficient)
+        include_overrides: Include possibleOverrides field for architecture discovery (increases output significantly)
 
     Examples:
         - Find P3385 compilers: proposal="P3385"
@@ -623,6 +625,7 @@ async def find_experimental_compilers_tool(
         - Find MSVC compilers: search_text="msvc"
         - Find nightly compilers: search_text="nightly"
         - Get only compiler IDs for MSVC (if needed): search_text="msvc", ids_only=True
+        - Get GCC with architecture overrides: search_text="gcc", include_overrides=True
     """
     result = await find_experimental_compilers(
         {
@@ -633,6 +636,7 @@ async def find_experimental_compilers_tool(
             "show_all": show_all,
             "search_text": search_text,
             "ids_only": ids_only,
+            "include_overrides": include_overrides,
         },
         config,
     )
