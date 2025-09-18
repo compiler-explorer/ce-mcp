@@ -220,7 +220,7 @@ Get comprehensive compilation warnings and errors.
 Check compiler optimizations and assembly analysis.
 
 ### compare_compilers
-Compare output across different compilers/options.
+Compare output across different compilers/options with detailed execution analysis and unified diff output.
 
 ### generate_share_url
 Generate Compiler Explorer URLs for collaboration.

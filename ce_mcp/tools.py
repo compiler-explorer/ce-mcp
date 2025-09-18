@@ -1,6 +1,6 @@
 """Tool implementations for Compiler Explorer MCP."""
 
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple
 
 from .config import Config
 from .api_client import CompilerExplorerClient
@@ -520,6 +520,106 @@ async def analyze_optimization(
     }
 
 
+def _analyze_execution_differences(results: List[Dict[str, Any]]) -> Tuple[List[str], Dict[str, Any]]:
+    """Analyze differences in execution results between compilers.
+
+    Returns:
+        Tuple of (differences_list, execution_diff_details)
+    """
+    import difflib
+
+    if len(results) < 2:
+        return [], {}
+
+    result1, result2 = results[0], results[1]
+    differences = []
+    diff_details = {}
+
+    # Compare compilation status
+    comp1, comp2 = result1["compiled"], result2["compiled"]
+    if comp1 != comp2:
+        if comp1 and not comp2:
+            differences.append(f"{result1['compiler']} compiled successfully, {result2['compiler']} failed")
+        elif comp2 and not comp1:
+            differences.append(f"{result2['compiler']} compiled successfully, {result1['compiler']} failed")
+    else:
+        if comp1 and comp2:
+            differences.append("Both compilers compiled successfully")
+        else:
+            differences.append("Both compilers failed to compile")
+
+    # Only compare execution if both compiled
+    if comp1 and comp2:
+        # Compare execution status
+        exec1, exec2 = result1["executed"], result2["executed"]
+        if exec1 != exec2:
+            differences.append(f"Execution status differs: {result1['compiler']}={'executed' if exec1 else 'not executed'}, {result2['compiler']}={'executed' if exec2 else 'not executed'}")
+
+        # Compare exit codes
+        exit1, exit2 = result1["exit_code"], result2["exit_code"]
+        if exit1 != exit2:
+            differences.append(f"Exit codes differ: {result1['compiler']}={exit1}, {result2['compiler']}={exit2}")
+
+        # Compare stdout
+        stdout1, stdout2 = result1["stdout"], result2["stdout"]
+        if stdout1 != stdout2:
+            stdout_lines1 = stdout1.splitlines()
+            stdout_lines2 = stdout2.splitlines()
+
+            if len(stdout_lines1) != len(stdout_lines2):
+                diff_lines = len(stdout_lines2) - len(stdout_lines1)
+                if diff_lines > 0:
+                    differences.append(f"Stdout differs: {result2['compiler']} output has {diff_lines} more lines")
+                else:
+                    differences.append(f"Stdout differs: {result1['compiler']} output has {abs(diff_lines)} more lines")
+            else:
+                differences.append("Stdout content differs")
+
+            # Generate unified diff for stdout
+            diff_details["stdout_diff"] = "\n".join(difflib.unified_diff(
+                stdout_lines1,
+                stdout_lines2,
+                fromfile=f"{result1['compiler']} {result1['options']}",
+                tofile=f"{result2['compiler']} {result2['options']}",
+                lineterm=""
+            ))
+
+        # Compare stderr
+        stderr1, stderr2 = result1["stderr"], result2["stderr"]
+        if stderr1 != stderr2:
+            stderr_lines1 = stderr1.splitlines()
+            stderr_lines2 = stderr2.splitlines()
+
+            if len(stderr_lines1) != len(stderr_lines2):
+                diff_lines = len(stderr_lines2) - len(stderr_lines1)
+                if diff_lines > 0:
+                    differences.append(f"Stderr differs: {result2['compiler']} output has {diff_lines} more lines")
+                else:
+                    differences.append(f"Stderr differs: {result1['compiler']} output has {abs(diff_lines)} more lines")
+            else:
+                differences.append("Stderr content differs")
+
+            # Generate unified diff for stderr
+            diff_details["stderr_diff"] = "\n".join(difflib.unified_diff(
+                stderr_lines1,
+                stderr_lines2,
+                fromfile=f"{result1['compiler']} {result1['options']}",
+                tofile=f"{result2['compiler']} {result2['options']}",
+                lineterm=""
+            ))
+
+    # Add summary
+    if diff_details:
+        summary_parts = []
+        if "stdout_diff" in diff_details:
+            summary_parts.append("stdout differs")
+        if "stderr_diff" in diff_details:
+            summary_parts.append("stderr differs")
+        diff_details["summary"] = f"Execution comparison: {', '.join(summary_parts)}"
+
+    return differences, diff_details
+
+
 async def compare_compilers(
     arguments: Dict[str, Any], config: Config
 ) -> Dict[str, Any]:
@@ -651,13 +751,49 @@ async def compare_compilers(
                 result = await client.compile_and_execute(
                     source, language, compiler_id, options, libraries=resolved_libraries
                 )
+
+                # Handle different API response formats (same as compile_and_run_tool)
+                build_result = result.get("buildResult", result)
+                compiled = build_result.get("code", 1) == 0
+
+                # Check for execution results
+                executed = result.get("didExecute", False) or "execResult" in result
+                exit_code = result.get("code", -1)
+
+                # Handle stdout/stderr from different locations
+                if compiled:
+                    # For successful compilation, execution stdout/stderr is at top level
+                    stdout = result.get("stdout", "")
+                    stderr = result.get("stderr", "")
+                else:
+                    # For failed compilation, get stdout from buildResult
+                    stdout = build_result.get("stdout", "")
+                    # Collect stderr from all possible locations
+                    stderr = _collect_all_stderr(result)
+
+                # Convert arrays to strings for both stdout and stderr
+                if isinstance(stdout, list):
+                    stdout = "".join(
+                        item.get("text", "") if isinstance(item, dict) else str(item)
+                        for item in stdout
+                    )
+
+                # stderr is already processed by _collect_all_stderr for compilation failures
+                if compiled and isinstance(stderr, list):
+                    stderr = "".join(
+                        item.get("text", "") if isinstance(item, dict) else str(item)
+                        for item in stderr
+                    )
+
                 results.append(
                     {
                         "compiler": compiler_id,
                         "options": options,
-                        "execution_result": result.get("execResult", {}).get(
-                            "stdout", ""
-                        ),
+                        "compiled": compiled,
+                        "executed": executed,
+                        "exit_code": exit_code,
+                        "stdout": stdout,
+                        "stderr": stderr,
                         "assembly_size": 0,
                         "warnings": 0,
                     }
@@ -719,6 +855,7 @@ async def compare_compilers(
     # Generate differences summary
     differences = []
     assembly_diff = None
+    execution_diff = None
 
     if len(results) >= 2:
         if comparison_type == "assembly":
@@ -745,9 +882,9 @@ async def compare_compilers(
                     differences.append(assembly_diff["summary"])
 
         elif comparison_type == "execution":
-            # Compare execution results
-            if results[0].get("execution_result") != results[1].get("execution_result"):
-                differences.append("Execution outputs differ")
+            # Use detailed execution analysis
+            exec_differences, execution_diff = _analyze_execution_differences(results)
+            differences.extend(exec_differences)
 
         elif comparison_type == "diagnostics":
             # Compare warning counts
@@ -775,6 +912,10 @@ async def compare_compilers(
             "unified_diff": "\n".join(assembly_diff["unified_diff"].splitlines()[:50])
             + "\n... (truncated)",
         }
+
+    # Add execution diff details if available
+    if execution_diff:
+        response["execution_diff"] = execution_diff
 
     return response
 

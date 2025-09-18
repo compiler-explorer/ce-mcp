@@ -281,6 +281,64 @@ class TestTools:
         assert len(result["differences"]) > 0
 
     @pytest.mark.asyncio
+    async def test_compare_compilers_execution(self, config, mock_client):
+        """Test compiler comparison for execution results."""
+        # Mock execution responses with different outputs
+        mock_client.compile_and_execute.side_effect = [
+            {
+                "buildResult": {"code": 0},
+                "code": 0,
+                "didExecute": True,
+                "stdout": "Hello World\nLine 2",
+                "stderr": "",
+            },
+            {
+                "buildResult": {"code": 0},
+                "code": 1,
+                "didExecute": True,
+                "stdout": "Hello World\nLine 2\nLine 3",
+                "stderr": "Warning: something",
+            },
+        ]
+
+        result = await compare_compilers(
+            {
+                "source": "#include <iostream>\nint main() { std::cout << \"Hello World\"; return 0; }",
+                "language": "c++",
+                "compilers": [
+                    {"id": "g++", "options": "-O2"},
+                    {"id": "clang++", "options": "-O2"},
+                ],
+                "comparison_type": "execution",
+            },
+            config,
+        )
+
+        # Verify enhanced execution data collection
+        assert len(result["results"]) == 2
+        assert result["results"][0]["compiled"] == True
+        assert result["results"][0]["executed"] == True
+        assert result["results"][0]["exit_code"] == 0
+        assert result["results"][0]["stdout"] == "Hello World\nLine 2"
+
+        assert result["results"][1]["compiled"] == True
+        assert result["results"][1]["executed"] == True
+        assert result["results"][1]["exit_code"] == 1
+        assert result["results"][1]["stdout"] == "Hello World\nLine 2\nLine 3"
+
+        # Verify detailed difference analysis
+        assert len(result["differences"]) > 0
+        differences_text = " ".join(result["differences"])
+        assert "Exit codes differ" in differences_text
+        assert "Stdout differs" in differences_text
+
+        # Verify execution_diff is present with unified diffs
+        assert "execution_diff" in result
+        assert "stdout_diff" in result["execution_diff"]
+        assert "stderr_diff" in result["execution_diff"]
+        assert "summary" in result["execution_diff"]
+
+    @pytest.mark.asyncio
     async def test_generate_share_url(self, config, mock_client):
         """Test share URL generation."""
         mock_client.create_short_link.return_value = "https://godbolt.org/z/abc123"

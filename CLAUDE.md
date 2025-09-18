@@ -37,7 +37,7 @@ ce-mcp --verbose                          # Debug mode
 2. **compile_and_run_tool** - Compile and execute
 3. **compile_with_diagnostics_tool** - Detailed error analysis
 4. **analyze_optimization_tool** - Assembly optimization analysis
-5. **compare_compilers_tool** - Compiler comparison
+5. **compare_compilers_tool** - Enhanced compiler comparison with detailed execution analysis
 6. **generate_share_url_tool** - Create Compiler Explorer URLs
 
 ## Key Implementation Notes
@@ -47,12 +47,14 @@ ce-mcp --verbose                          # Debug mode
 - Support both compiler IDs (`g132`) and friendly names (`g++`)
 - Configuration in YAML format
 - Token-efficient responses for AI workflows
+- Enhanced execution comparison with unified diff output for stdout/stderr
+- Detailed compilation/execution status tracking across compilers
 
 ## Priority Tasks
 
 1. **Implement caching system** - Missing core spec requirement
 2. **Fix diagnostics parsing** - Line/column extraction issues
-3. **Enhance compiler comparisons** - Better difference analysis
+3. ~~**Enhance compiler comparisons** - Better difference analysis~~ ✓ **COMPLETED**
 
 See `IMPLEMENTATION_STATUS.md` for complete status and `ADDITIONAL_TOOLS_PROPOSAL.md` for expansion ideas.
 
