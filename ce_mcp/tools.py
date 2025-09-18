@@ -427,29 +427,6 @@ async def analyze_optimization(
         if line:
             instruction_lines.append(line)
 
-    # Analyze assembly for optimizations
-    optimizations = {
-        "memcpy_conversion": "memcpy" in asm_text or "memmove" in asm_text,
-        "vectorization": any(
-            inst in asm_text
-            for inst in ["movdqu", "movups", "vmovups", "vaddps", "vmov", "vadd"]
-        ),
-        "function_inlining": "call" not in asm_text.lower(),  # Simple heuristic
-        "simd_instructions": [
-            inst
-            for inst in ["movdqu", "movups", "vmovups", "vaddps", "vmov", "vadd"]
-            if inst in asm_text
-        ],
-    }
-
-    summary = []
-    if optimizations["memcpy_conversion"]:
-        summary.append("Compiler optimized manual loop to memcpy call")
-    if optimizations["vectorization"]:
-        summary.append("SIMD vectorization detected")
-    if optimizations["function_inlining"]:
-        summary.append("Function calls inlined")
-
     # Limit assembly output for readability
     max_asm_lines = config.output_limits.max_assembly_lines
     truncated_asm = False
@@ -458,10 +435,6 @@ async def analyze_optimization(
         truncated_asm = True
 
     return {
-        "optimizations_detected": optimizations,
-        "summary": (
-            "; ".join(summary) if summary else "No significant optimizations detected"
-        ),
         "assembly_lines": len(asm_lines),
         "instruction_count": len(instruction_lines),
         "assembly_output": instruction_lines,

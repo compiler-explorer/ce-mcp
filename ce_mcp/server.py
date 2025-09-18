@@ -342,10 +342,11 @@ async def analyze_optimization_tool(
 ) -> str:
     """Analyze compiler optimizations and generated assembly code.
 
-    This tool examines how compilers optimize code by analyzing the generated assembly.
-    It detects vectorization, inlining, loop optimizations, SIMD usage, and other
-    compiler transformations. Perfect for performance analysis and understanding
-    how different code patterns affect optimization.
+    This tool examines how compilers optimize code by providing the raw assembly output
+    for analysis. The LLM can interpret the assembly to detect optimizations like
+    vectorization, inlining, loop transformations, and other compiler optimizations.
+    Perfect for performance analysis and understanding how different code patterns
+    affect optimization across different architectures.
 
     **Use Cases:**
     - **Performance investigation**: Understand why code is fast or slow
@@ -367,16 +368,27 @@ async def analyze_optimization_tool(
     - libraries: List of libraries with format [{"id": "library_name", "version": "latest"}]
 
     **Returns JSON with:**
-    - optimizations_detected: Object with detected optimization types:
-      - memcpy_conversion: Boolean - compiler replaced loops with memcpy
-      - vectorization: Boolean - SIMD/vector instructions generated
-      - loop_unrolling: Boolean - loops were unrolled for performance
-      - function_inlining: Boolean - function calls were inlined
-      - simd_instructions: Array of SIMD instruction names found
-    - summary: Human-readable description of key optimizations
     - assembly_lines: Number of assembly lines generated
-    - full_assembly: Complete assembly output (filtered based on settings)
+    - instruction_count: Number of actual instructions (excluding comments/labels)
+    - assembly_output: Complete assembly output (filtered based on settings)
     - truncated: Boolean indicating if assembly output was truncated
+    - total_instructions: Total instruction count including truncated lines
+
+    **Assembly Analysis Examples:**
+
+    *Vectorization Detection:*
+    - x86: Look for SIMD instructions like `movdqu`, `paddd`, `vpaddd`, `vmovups`
+    - ARM: Look for NEON instructions like `ld1`, `add.4s`, `fmla.4s`
+    - RISC-V: Look for vector instructions like `vle32.v`, `vadd.vv`
+
+    *Function Inlining:*
+    - Absence of `call`/`bl`/`jal` instructions for expected function calls
+    - Code expansion where function body appears inline
+
+    *Loop Optimizations:*
+    - Unrolling: Repeated instruction patterns within loops
+    - Memcpy conversion: Calls to `memcpy`/`memmove` instead of explicit loops
+    - Strength reduction: Multiplication replaced by shifts/additions
 
     **Example Tool Calls:**
 

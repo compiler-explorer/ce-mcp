@@ -166,9 +166,11 @@ class TestTools:
             config,
         )
 
-        assert result["optimizations_detected"]["memcpy_conversion"] is True
-        assert result["optimizations_detected"]["vectorization"] is True
-        assert "memcpy" in result["summary"]
+        assert "assembly_lines" in result
+        assert "instruction_count" in result
+        assert "assembly_output" in result
+        assert "truncated" in result
+        assert "total_instructions" in result
         assert result["assembly_lines"] == 4
 
     @pytest.mark.asyncio
