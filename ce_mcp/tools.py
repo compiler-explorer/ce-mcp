@@ -11,6 +11,40 @@ from .experimental_utils import (
 )
 
 
+def extract_compiler_suggestion(message: str) -> str:
+    """
+    Extract compiler suggestions from diagnostic messages.
+
+    Looks for common patterns like:
+    - "did you mean 'xyz'?"
+    - "use 'xyz' instead"
+    - "note: suggested alternative: 'xyz'"
+    """
+    import re
+
+    # Pattern for "did you mean" suggestions
+    did_you_mean = re.search(r"did you mean ['\"]([^'\"]+)['\"]", message, re.IGNORECASE)
+    if did_you_mean:
+        return f"did you mean '{did_you_mean.group(1)}'?"
+
+    # Pattern for "use X instead" suggestions
+    use_instead = re.search(r"use ['\"]([^'\"]+)['\"] instead", message, re.IGNORECASE)
+    if use_instead:
+        return f"use '{use_instead.group(1)}' instead"
+
+    # Pattern for "suggested alternative" notes
+    suggested = re.search(r"suggested alternative: ['\"]([^'\"]+)['\"]", message, re.IGNORECASE)
+    if suggested:
+        return f"suggested alternative: '{suggested.group(1)}'"
+
+    # Pattern for fix-it hints (common in clang)
+    fixit = re.search(r"fix-it applied: ['\"]([^'\"]+)['\"]", message, re.IGNORECASE)
+    if fixit:
+        return f"fix-it: '{fixit.group(1)}'"
+
+    return None
+
+
 def _collect_all_stderr(result: Dict[str, Any]) -> str:
     """
     Collect stderr messages from all possible locations in API response.
@@ -325,15 +359,57 @@ async def compile_with_diagnostics(
     diagnostics = []
     for diag in result.get("stderr", []):
         if "text" in diag:
-            diagnostics.append(
-                {
-                    "type": "error" if "error" in diag["text"].lower() else "warning",
-                    "line": diag.get("line", 0),
-                    "column": diag.get("column", 0),
-                    "message": diag["text"],
-                    "suggestion": None,
-                }
-            )
+            # Only process entries with actual diagnostic information
+            # Skip context lines and code snippets that don't have tags
+            if "tag" in diag and isinstance(diag["tag"], dict):
+                tag = diag["tag"]
+                # Use severity levels: 0=note, 1=warning, 2=error, 3=fatal
+                severity = tag.get("severity", 2)
+                if severity == 0:
+                    diag_type = "note"
+                elif severity == 1:
+                    diag_type = "warning"
+                elif severity >= 2:
+                    diag_type = "error"
+                else:
+                    diag_type = "warning"  # fallback
+
+                # Extract line/column from tag
+                line = tag.get("line", 0)
+                column = tag.get("column", 0)
+
+                # Use the clean text from tag if available, otherwise use raw text
+                message = tag.get("text", diag["text"])
+
+                # Extract suggestions from message text
+                suggestion = extract_compiler_suggestion(message)
+
+                diagnostics.append(
+                    {
+                        "type": diag_type,
+                        "line": line,
+                        "column": column,
+                        "message": message,
+                        "suggestion": suggestion,
+                    }
+                )
+            elif "line" in diag and "column" in diag:
+                # Fallback for entries with line/column but no tag (older format)
+                diag_type = "error" if "error" in diag["text"].lower() else "warning"
+                line = diag.get("line", 0)
+                column = diag.get("column", 0)
+                message = diag["text"]
+                suggestion = extract_compiler_suggestion(message)
+
+                diagnostics.append(
+                    {
+                        "type": diag_type,
+                        "line": line,
+                        "column": column,
+                        "message": message,
+                        "suggestion": suggestion,
+                    }
+                )
 
     return {
         "success": result.get("code", 1) == 0,

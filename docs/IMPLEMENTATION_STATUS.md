@@ -35,20 +35,22 @@ This report compares the current implementation against the specification docume
 
 **Implementation**: `ce_mcp/server.py:50-58`, `ce_mcp/tools.py:46-94`
 
-### 3. `compile_with_diagnostics_tool` ⚠️ PARTIALLY IMPLEMENTED
-**Spec Compliance: 75%**
+### 3. `compile_with_diagnostics_tool` ✅ FULLY IMPLEMENTED
+**Spec Compliance: 95%**
 
 - ✅ All parameters: `source`, `language`, `compiler`, `options`, `diagnostic_level`
-- ⚠️ **Issue**: Diagnostics parsing incomplete
-  - Parses from `stderr` array instead of `diagnostics` array
-  - Missing proper line/column number extraction  
-  - No suggestion field implementation
+- ✅ **Fixed**: Comprehensive diagnostics parsing
+  - Parses structured data from `stderr[].tag` field when available
+  - Proper line/column number extraction from tag metadata
+  - Suggestion field implementation with pattern matching
+  - Severity-based error type classification (note/warning/error/fatal)
 - ✅ Correctly adjusts compiler flags based on diagnostic level
 - ✅ Returns command string format
+- ✅ Backward compatibility with older API response formats
 
-**Implementation**: `ce_mcp/server.py:78-84`, `ce_mcp/tools.py:97-132`
+**Implementation**: `ce_mcp/server.py:78-84`, `ce_mcp/tools.py:272-417`
 
-**Fix Required**: Update diagnostics parsing to handle proper API response format
+**Recent Improvements**: Enhanced parsing logic, suggestion extraction, comprehensive testing
 
 ### 4. `analyze_optimization_tool` ✅ FULLY IMPLEMENTED (Enhanced)
 **Spec Compliance: 110%** (with enhancements)
@@ -160,35 +162,24 @@ The specification identifies caching as a core design principle, but no caching 
 ## 🔄 Recent Updates
 
 **Latest Changes:**
+- ✅ **Fixed diagnostics parsing** - Improved from 75% to 95% spec compliance
 - ✅ Enhanced experimental compiler search with filtering options
 - ✅ Improved documentation and setup scripts
 - ✅ Fixed pytest command paths in documentation
-- ⚠️ Some integration test failures detected (timeout and optimization analysis)
+- ✅ Fixed all integration test failures and session cleanup issues
 
 ## 📋 Priority Action Items
 
 ### 🔴 High Priority (Core Spec Requirements)
 
-1. **Fix Failing Integration Tests**
-   - Fix timeout handling in `test_timeout_handling_real`
-   - Fix optimization analysis in `test_analyze_optimization_real`
-   - Investigate and resolve session cleanup issues
-   - **Effort**: 4-6 hours
-
-2. **Implement Caching System**
+1. **Implement Caching System**
    - Create cache directory management
    - Add hash-based cache keys (source + compiler + options)
    - Implement TTL and LRU eviction  
    - Add cache header respect
    - **Effort**: 2-3 days
 
-3. **Fix Diagnostics Parsing** in `compile_with_diagnostics_tool`
-   - Update to parse from correct API response field
-   - Extract line/column numbers properly
-   - Add suggestion field support
-   - **Effort**: 4-6 hours
-
-4. **Enhance Difference Analysis** in `compare_compilers_tool`  
+2. **Enhance Difference Analysis** in `compare_compilers_tool`  
    - Add execution result comparisons
    - Improve assembly size analysis
    - Add comprehensive diagnostics comparison
@@ -196,25 +187,25 @@ The specification identifies caching as a core design principle, but no caching 
 
 ### 🟡 Medium Priority (Quality Improvements)
 
-5. **Advanced Error Handling**
+3. **Advanced Error Handling**
    - Add 429 rate limiting detection
    - Implement exponential backoff retry
    - Add detailed error parsing
    - **Effort**: 1 day
 
-6. **Context-Preserving Output Truncation**
+4. **Context-Preserving Output Truncation**
    - Implement smart error context preservation
    - Add error/warning grouping
    - **Effort**: 1 day
 
 ### 🟢 Low Priority (Enhancements)
 
-7. **Performance Optimizations**
+5. **Performance Optimizations**
    - Token efficiency improvements
    - Response time optimizations
    - **Effort**: 1-2 days
 
-8. **Extended Features**
+6. **Extended Features**
    - Multi-file compilation support
    - Custom compiler configurations
    - **Effort**: 3-5 days
@@ -275,10 +266,9 @@ With the high-priority fixes (especially caching), this implementation would ach
 
 ## 📅 Next Steps
 
-1. **Immediate**: Fix failing integration tests (timeout and optimization analysis) - 4-6 hours
-2. **High Priority**: Implement caching system (2-3 days)
-3. **Short-term**: Fix diagnostics parsing and enhance comparisons (1-2 days)
-4. **Medium-term**: Add advanced error handling and output improvements (2-3 days)
-5. **Long-term**: Performance optimizations and extended features (1-2 weeks)
+1. **High Priority**: Implement caching system (2-3 days)
+2. **Short-term**: Enhance compiler comparison analysis (1-2 days)
+3. **Medium-term**: Add advanced error handling and output improvements (2-3 days)
+4. **Long-term**: Performance optimizations and extended features (1-2 weeks)
 
 The implementation provides an excellent foundation for a production-ready Compiler Explorer MCP server.

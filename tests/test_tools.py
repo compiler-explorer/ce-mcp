@@ -10,6 +10,7 @@ from ce_mcp.tools import (
     analyze_optimization,
     compare_compilers,
     generate_share_url,
+    extract_compiler_suggestion,
 )
 from ce_mcp.config import Config
 
@@ -21,6 +22,24 @@ class TestTools:
     def config(self):
         """Create test configuration."""
         return Config()
+
+    def test_extract_compiler_suggestion(self):
+        """Test compiler suggestion extraction patterns."""
+        # Test "did you mean" pattern
+        assert extract_compiler_suggestion("error: 'foo' was not declared; did you mean 'bar'?") == "did you mean 'bar'?"
+
+        # Test "use instead" pattern
+        assert extract_compiler_suggestion("warning: use 'const' instead of 'volatile'") == "use 'const' instead"
+
+        # Test "suggested alternative" pattern
+        assert extract_compiler_suggestion("note: suggested alternative: 'std::vector'") == "suggested alternative: 'std::vector'"
+
+        # Test fix-it pattern
+        assert extract_compiler_suggestion("note: fix-it applied: 'auto'") == "fix-it: 'auto'"
+
+        # Test no suggestion
+        assert extract_compiler_suggestion("error: syntax error") is None
+        assert extract_compiler_suggestion("warning: unused variable") is None
 
     @pytest.fixture
     def mock_client(self):
@@ -146,6 +165,62 @@ class TestTools:
         assert result["diagnostics"][0]["line"] == 5
         assert result["diagnostics"][1]["type"] == "warning"
         assert "clang1700" in result["command"]
+
+    @pytest.mark.asyncio
+    async def test_compile_with_diagnostics_suggestions(self, config, mock_client):
+        """Test diagnostics with suggestion extraction."""
+        mock_client.compile.return_value = {
+            "code": 1,
+            "stderr": [
+                {
+                    "text": "error: 'foo' was not declared in this scope; did you mean 'bar'?",
+                    "tag": {
+                        "line": 3,
+                        "column": 5,
+                        "text": "error: 'foo' was not declared in this scope; did you mean 'bar'?",
+                        "severity": 2,
+                        "file": "example.cpp"
+                    }
+                },
+                {
+                    "text": "note: use 'const' instead of 'volatile'",
+                    "tag": {
+                        "line": 2,
+                        "column": 1,
+                        "text": "note: use 'const' instead of 'volatile'",
+                        "severity": 0,
+                        "file": "example.cpp"
+                    }
+                }
+            ],
+        }
+
+        result = await compile_with_diagnostics(
+            {
+                "source": "int main() { volatile int x; foo(); return 0; }",
+                "language": "c++",
+                "compiler": "g++",
+                "diagnostic_level": "normal",
+            },
+            config,
+        )
+
+        assert result["success"] is False
+        assert len(result["diagnostics"]) == 2
+
+        # Check error with suggestion
+        error_diag = result["diagnostics"][0]
+        assert error_diag["type"] == "error"
+        assert error_diag["line"] == 3
+        assert error_diag["column"] == 5
+        assert error_diag["suggestion"] == "did you mean 'bar'?"
+
+        # Check note with suggestion
+        note_diag = result["diagnostics"][1]
+        assert note_diag["type"] == "note"
+        assert note_diag["line"] == 2
+        assert note_diag["column"] == 1
+        assert note_diag["suggestion"] == "use 'const' instead"
 
     @pytest.mark.asyncio
     async def test_analyze_optimization(self, config, mock_client):
