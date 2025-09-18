@@ -153,28 +153,42 @@ The specification identifies caching as a core design principle, but no caching 
 - ✅ **Unit Tests**: 33 unit tests with mocked API responses
 - ✅ **Integration Tests**: 16 integration tests with real API calls
 - ✅ **Test Coverage**: 77% coverage achieved
-- ✅ **Success Rate**: 48/49 tests passing (98%)
+- ⚠️ **Success Rate**: 62/64 tests passing (97%) - 2 integration test failures
 
 **Test Files**: `tests/test_*.py`
+
+## 🔄 Recent Updates
+
+**Latest Changes:**
+- ✅ Enhanced experimental compiler search with filtering options
+- ✅ Improved documentation and setup scripts
+- ✅ Fixed pytest command paths in documentation
+- ⚠️ Some integration test failures detected (timeout and optimization analysis)
 
 ## 📋 Priority Action Items
 
 ### 🔴 High Priority (Core Spec Requirements)
 
-1. **Implement Caching System**
+1. **Fix Failing Integration Tests**
+   - Fix timeout handling in `test_timeout_handling_real`
+   - Fix optimization analysis in `test_analyze_optimization_real`
+   - Investigate and resolve session cleanup issues
+   - **Effort**: 4-6 hours
+
+2. **Implement Caching System**
    - Create cache directory management
    - Add hash-based cache keys (source + compiler + options)
    - Implement TTL and LRU eviction  
    - Add cache header respect
    - **Effort**: 2-3 days
 
-2. **Fix Diagnostics Parsing** in `compile_with_diagnostics_tool`
+3. **Fix Diagnostics Parsing** in `compile_with_diagnostics_tool`
    - Update to parse from correct API response field
    - Extract line/column numbers properly
    - Add suggestion field support
    - **Effort**: 4-6 hours
 
-3. **Enhance Difference Analysis** in `compare_compilers_tool`  
+4. **Enhance Difference Analysis** in `compare_compilers_tool`  
    - Add execution result comparisons
    - Improve assembly size analysis
    - Add comprehensive diagnostics comparison
@@ -182,25 +196,25 @@ The specification identifies caching as a core design principle, but no caching 
 
 ### 🟡 Medium Priority (Quality Improvements)
 
-4. **Advanced Error Handling**
+5. **Advanced Error Handling**
    - Add 429 rate limiting detection
    - Implement exponential backoff retry
    - Add detailed error parsing
    - **Effort**: 1 day
 
-5. **Context-Preserving Output Truncation**
+6. **Context-Preserving Output Truncation**
    - Implement smart error context preservation
    - Add error/warning grouping
    - **Effort**: 1 day
 
 ### 🟢 Low Priority (Enhancements)
 
-6. **Performance Optimizations**
+7. **Performance Optimizations**
    - Token efficiency improvements
    - Response time optimizations
    - **Effort**: 1-2 days
 
-7. **Extended Features**
+8. **Extended Features**
    - Multi-file compilation support
    - Custom compiler configurations
    - **Effort**: 3-5 days
@@ -219,13 +233,13 @@ The specification identifies caching as a core design principle, but no caching 
 
 ```bash
 # Run all tests
-pytest tests/
+.venv/bin/pytest tests/
 
 # Run unit tests only
-pytest tests/ -m "not integration"
+.venv/bin/pytest tests/ -m "not integration"
 
 # Run integration tests
-pytest tests/ -m integration
+.venv/bin/pytest tests/ -m integration
 
 # Code formatting
 uv run black ce_mcp/ tests/
@@ -261,9 +275,10 @@ With the high-priority fixes (especially caching), this implementation would ach
 
 ## 📅 Next Steps
 
-1. **Immediate**: Implement caching system (2-3 days)
-2. **Short-term**: Fix diagnostics parsing and enhance comparisons (1-2 days)  
-3. **Medium-term**: Add advanced error handling and output improvements (2-3 days)
-4. **Long-term**: Performance optimizations and extended features (1-2 weeks)
+1. **Immediate**: Fix failing integration tests (timeout and optimization analysis) - 4-6 hours
+2. **High Priority**: Implement caching system (2-3 days)
+3. **Short-term**: Fix diagnostics parsing and enhance comparisons (1-2 days)
+4. **Medium-term**: Add advanced error handling and output improvements (2-3 days)
+5. **Long-term**: Performance optimizations and extended features (1-2 weeks)
 
 The implementation provides an excellent foundation for a production-ready Compiler Explorer MCP server.

@@ -16,9 +16,9 @@ uv venv && source .venv/bin/activate
 uv pip install -e ".[dev]"
 
 # Tests
-pytest tests/                              # All tests
-pytest tests/ -m "not integration"        # Unit tests only
-pytest tests/ -m integration              # Integration tests
+.venv/bin/pytest tests/                              # All tests
+.venv/bin/pytest tests/ -m "not integration"        # Unit tests only
+.venv/bin/pytest tests/ -m integration              # Integration tests
 
 # Code quality
 uv run black ce_mcp/ tests/               # Format

@@ -11,10 +11,12 @@ class TestCompilerExplorerClient:
     """Test API client functionality."""
 
     @pytest.fixture
-    def client(self):
+    async def client(self):
         """Create API client with default config."""
         config = Config()
-        return CompilerExplorerClient(config)
+        client = CompilerExplorerClient(config)
+        yield client
+        await client.close()
 
     @pytest.fixture
     def mock_api(self):

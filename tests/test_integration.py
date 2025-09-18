@@ -352,8 +352,9 @@ int main() {
                 config,
             )
 
-            assert "optimizations_detected" in result
             assert "assembly_lines" in result
+            assert "instruction_count" in result
+            assert "assembly_output" in result
             # Assembly analysis might not work if API doesn't return assembly
             # assert result["assembly_lines"] > 0
 

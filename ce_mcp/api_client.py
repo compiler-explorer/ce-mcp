@@ -1,5 +1,6 @@
 """API client for Compiler Explorer."""
 
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -18,25 +19,61 @@ class CompilerExplorerClient:
         """Initialize the API client."""
         self.config = config
         self.session: Optional[aiohttp.ClientSession] = None
+        self.connector: Optional[aiohttp.TCPConnector] = None
+        self._closed = False
+
+    async def __aenter__(self):
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.close()
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
         if self.session is None:
             timeout = ClientTimeout(total=self.config.api.timeout)
+            self.connector = aiohttp.TCPConnector(limit=10, limit_per_host=5)
             self.session = aiohttp.ClientSession(
                 headers={
                     "User-Agent": self.config.api.user_agent,
                     "Accept": "application/json",
                 },
                 timeout=timeout,
+                connector=self.connector,
             )
         return self.session
 
     async def close(self) -> None:
         """Close the session."""
-        if self.session:
+        if self.session and not self._closed:
             await self.session.close()
             self.session = None
+
+            # Close connector if it exists
+            if self.connector:
+                await self.connector.close()
+                self.connector = None
+
+            # Cancel any pending tasks and wait for cleanup
+            pending_tasks = [task for task in asyncio.all_tasks() if not task.done()]
+            if pending_tasks:
+                await asyncio.sleep(0.2)  # Give more time for cleanup
+
+            self._closed = True
+
+    def __del__(self):
+        """Cleanup on garbage collection."""
+        if self.session and not self._closed:
+            # Issue a warning instead of trying to close in __del__
+            import warnings
+            warnings.warn(
+                "CompilerExplorerClient was not properly closed. "
+                "Please call await client.close() in your code.",
+                ResourceWarning,
+                stacklevel=2
+            )
 
     async def compile(
         self,

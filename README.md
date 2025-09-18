@@ -13,7 +13,7 @@ A Model Context Protocol (MCP) server that provides efficient access to Compiler
 
 ## Implementation Status
 
-**85% Complete** - See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for detailed analysis.
+**85% Complete** - See [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) for detailed analysis.
 
 ✅ **Fully Working**: All 6 MCP tools implemented and functional  
 ⚠️ **Minor Issues**: Some tools need spec compliance fixes  
@@ -57,13 +57,13 @@ uv pip install -e ".[dev]"
 
 ```bash
 # Run unit tests
-pytest tests/ -m "not integration"
+.venv/bin/pytest tests/ -m "not integration"
 
 # Run integration tests (requires internet)
-pytest tests/ -m integration
+.venv/bin/pytest tests/ -m integration
 
 # Run all tests
-pytest tests/
+.venv/bin/pytest tests/
 ```
 
 ### 4. Start the MCP Server
@@ -253,10 +253,10 @@ compiler_explorer_mcp:
 uv pip install -e ".[dev]"
 
 # Run tests
-pytest tests/
+.venv/bin/pytest tests/
 
 # Run integration tests (requires internet)
-pytest tests/ -m integration
+.venv/bin/pytest tests/ -m integration
 
 # Format code
 black .
