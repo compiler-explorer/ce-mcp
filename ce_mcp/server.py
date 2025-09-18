@@ -48,7 +48,7 @@ async def compile_check_tool(
     - **Bulk validation**: Check multiple code samples efficiently
 
     **Parameters:**
-    - source: Source code to compile
+    - source: Source code to compile (minimal comments preferred)
     - language: Programming language (c++, c, rust, go, python, etc.)
     - compiler: Compiler identifier (e.g., "g132", "clang1600") or friendly name
     - options: Compiler flags (e.g., "-O2 -Wall", "-std=c++20")
@@ -138,7 +138,7 @@ async def compile_and_run_tool(
     - **Integration testing**: Test programs with different inputs and arguments
 
     **Parameters:**
-    - source: Source code to compile and execute
+    - source: Source code to compile and execute (minimal comments preferred)
     - language: Programming language (c++, c, rust, go, python, etc.)
     - compiler: Compiler identifier (e.g., "g132", "clang1600") or friendly name
     - options: Compiler flags (e.g., "-O2 -Wall", "-std=c++20")
@@ -245,7 +245,7 @@ async def compile_with_diagnostics_tool(
     - **Standard compliance**: Check code against language standards
 
     **Parameters:**
-    - source: Source code to analyze for compilation issues
+    - source: Source code to analyze for compilation issues (minimal comments preferred)
     - language: Programming language (c++, c, rust, go, etc.)
     - compiler: Compiler identifier (e.g., "g132", "clang1600") or friendly name
     - options: Additional compiler flags (e.g., "-std=c++20", "-march=native")
@@ -356,7 +356,7 @@ async def analyze_optimization_tool(
     - **Algorithm analysis**: See how different implementations optimize
 
     **Parameters:**
-    - source: Source code to analyze for optimizations
+    - source: Source code to analyze for optimizations (minimal comments preferred)
     - language: Programming language (c++, c, rust, go, etc.)
     - compiler: Compiler identifier (e.g., "g132", "clang1600") or friendly name
     - optimization_level: Optimization flags (e.g., "-O0", "-O2", "-O3", "-Os", "-Ofast")
@@ -500,7 +500,7 @@ async def generate_share_url_tool(
     - **Standard compliance**: Demonstrate how code behaves across different compiler versions
 
     **Parameters:**
-    - source: Source code to include in the shareable URL
+    - source: Source code to include in the shareable URL (minimal comments preferred)
     - language: Programming language (c++, c, rust, go, python, etc.)
     - compiler: Compiler identifier (e.g., "g132", "clang1600") or friendly name
     - options: Compiler flags (e.g., "-O2 -Wall", "-std=c++20 -march=native")
