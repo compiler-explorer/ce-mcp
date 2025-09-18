@@ -771,6 +771,33 @@ async def find_experimental_compilers(
     feature = arguments.get("feature")
     category = arguments.get("category")
     show_all = arguments.get("show_all", False)
+    search_text = arguments.get("search_text")
+    ids_only = arguments.get("ids_only", False)
+
+    def apply_text_filter(compilers_list, search_text):
+        """Filter compilers by search text in names and IDs (case-insensitive)."""
+        if not search_text:
+            return compilers_list
+        search_lower = search_text.lower()
+        return [
+            comp for comp in compilers_list
+            if search_lower in comp.id.lower() or search_lower in comp.name.lower()
+        ]
+
+    def format_compiler_info(comp, ids_only=False):
+        """Format compiler info with optional ids_only mode."""
+        if ids_only:
+            return comp.id
+        return {
+            "id": comp.id,
+            "name": comp.name,
+            "proposals": comp.proposal_numbers,
+            "features": comp.features,
+            "is_nightly": comp.is_nightly,
+            "description": comp.description,
+            "version_info": comp.version_info,
+            "modified": comp.modified,
+        }
 
     client = CompilerExplorerClient(config)
 
@@ -785,7 +812,7 @@ async def find_experimental_compilers(
         )
 
         # If no filters provided, categorize all experimental compilers
-        if not any([proposal, feature, category]) or show_all:
+        if (not any([proposal, feature, category]) and not search_text) or show_all:
             compilers = await client.get_compilers(language, include_extended_info=True)
             finder = ExperimentalCompilerFinder()
             categorized = finder.categorize_compilers(compilers)
@@ -798,63 +825,74 @@ async def find_experimental_compilers(
 
             result: Dict[str, Any] = {
                 "summary": {
-                    "total_experimental": sum(
-                        len(compilers) for compilers in categorized.values()
-                    ),
-                    "categories_found": len(categorized),
                     "language": language,
                 },
                 "categories": {},
             }
 
             for cat_name, cat_compilers in categorized.items():
-                result["categories"][cat_name] = {
-                    "count": len(cat_compilers),
-                    "compilers": [
-                        {
-                            "id": comp.id,
-                            "name": comp.name,
-                            "proposals": comp.proposal_numbers,
-                            "features": comp.features,
-                            "is_nightly": comp.is_nightly,
-                            "description": comp.description,
-                            "version_info": comp.version_info,
-                            "modified": comp.modified,
-                        }
-                        for comp in cat_compilers
-                    ],
-                }
+                # Apply text filter to category compilers
+                filtered_compilers = apply_text_filter(cat_compilers, search_text)
+
+                if filtered_compilers:  # Only include categories with matching compilers
+                    result["categories"][cat_name] = {
+                        "count": len(filtered_compilers),
+                        "compilers": [
+                            format_compiler_info(comp, ids_only)
+                            for comp in filtered_compilers
+                        ],
+                    }
+
+            # Update summary with final counts
+            result["summary"].update({
+                "total_experimental": sum(
+                    len(cat_data["compilers"]) for cat_data in result["categories"].values()
+                ),
+                "categories_found": len(result["categories"]),
+                "filter_used": search_text,
+            })
 
         else:
+            # Apply text filter to experimental compilers
+            filtered_experimental = apply_text_filter(experimental_compilers, search_text)
+
             # Return filtered results
             result = {
                 "summary": {
-                    "total_found": len(experimental_compilers),
+                    "total_found": len(filtered_experimental),
                     "language": language,
-                    "filter_used": proposal or feature or category,
+                    "filter_used": proposal or feature or category or search_text,
                 },
                 "compilers": [
                     {
-                        "id": comp.id,
-                        "name": comp.name,
+                        **format_compiler_info(comp, ids_only),
                         "category": comp.category,
-                        "proposals": comp.proposal_numbers,
-                        "features": comp.features,
-                        "is_nightly": comp.is_nightly,
-                        "description": comp.description,
-                        "version_info": comp.version_info,
-                        "modified": comp.modified,
-                    }
-                    for comp in experimental_compilers
+                    } if not ids_only else format_compiler_info(comp, ids_only)
+                    for comp in filtered_experimental
                 ],
             }
 
         # Add usage examples
-        if proposal:
-            result["usage_example"] = {
-                "description": f"To use {proposal} features with the found compiler(s)",
-                "example_compilers": [comp.id for comp in experimental_compilers[:3]],
-            }
+        if proposal and not ids_only:
+            # Get example compilers from the results
+            example_compilers = []
+            if "compilers" in result:
+                example_compilers = [comp["id"] for comp in result["compilers"][:3] if isinstance(comp, dict)]
+            elif "categories" in result:
+                for cat_data in result["categories"].values():
+                    for comp in cat_data["compilers"][:3]:
+                        if isinstance(comp, dict) and len(example_compilers) < 3:
+                            example_compilers.append(comp["id"])
+                        if len(example_compilers) >= 3:
+                            break
+                    if len(example_compilers) >= 3:
+                        break
+
+            if example_compilers:
+                result["usage_example"] = {
+                    "description": f"To use {proposal} features with the found compiler(s)",
+                    "example_compilers": example_compilers,
+                }
 
         return result
 

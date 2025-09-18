@@ -602,6 +602,8 @@ async def find_experimental_compilers_tool(
     feature: str | None = None,
     category: str | None = None,
     show_all: bool = False,
+    search_text: str | None = None,
+    ids_only: bool = False,
 ) -> str:
     """Find experimental compilers supporting specific proposals or features.
 
@@ -611,12 +613,16 @@ async def find_experimental_compilers_tool(
         feature: Experimental feature to search for (e.g., 'reflection', 'concepts', 'modules')
         category: Category to filter by (e.g., 'proposals', 'reflection', 'concepts')
         show_all: Show all experimental compilers organized by category
+        search_text: Filter compilers by text search in names and IDs (recommended for token efficiency)
+        ids_only: Return only compiler IDs (use sparingly, only when search_text isn't sufficient)
 
     Examples:
         - Find P3385 compilers: proposal="P3385"
         - Find reflection compilers: feature="reflection"
         - Find all proposal compilers: category="proposals"
-        - Show all experimental compilers: show_all=True
+        - Find MSVC compilers: search_text="msvc"
+        - Find nightly compilers: search_text="nightly"
+        - Get only compiler IDs for MSVC (if needed): search_text="msvc", ids_only=True
     """
     result = await find_experimental_compilers(
         {
@@ -625,6 +631,8 @@ async def find_experimental_compilers_tool(
             "feature": feature,
             "category": category,
             "show_all": show_all,
+            "search_text": search_text,
+            "ids_only": ids_only,
         },
         config,
     )
