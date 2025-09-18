@@ -355,9 +355,6 @@ class TestTools:
         )
 
         assert result["url"] == "https://godbolt.org/z/abc123"
-        assert result["short_url"] == "https://godbolt.org/z/abc123"
-        assert result["configuration"]["compiler"] == "g132"
-        assert result["configuration"]["options"] == "-O2"
 
     @pytest.mark.asyncio
     async def test_compile_check_with_arg_extraction(self, config, mock_client):

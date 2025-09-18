@@ -969,14 +969,7 @@ async def generate_share_url(
     finally:
         await client.close()
 
-    return {
-        "url": url,
-        "short_url": url,
-        "configuration": {
-            "compiler": compiler,
-            "options": options,
-        },
-    }
+    return {"url": url}
 
 
 async def find_compilers(

@@ -256,7 +256,7 @@ class CompilerExplorerClient:
             "options": options,
         }
         if libraries:
-            compiler_config["libraries"] = libraries
+            compiler_config["libs"] = libraries
 
         session_config = {
             "sessions": [

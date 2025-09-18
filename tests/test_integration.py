@@ -384,7 +384,6 @@ int main() {
             )
 
             assert "url" in result
-            assert "configuration" in result
             url = result["url"]
             assert isinstance(url, str)
             assert url.startswith("https://")

@@ -525,12 +525,7 @@ async def generate_share_url_tool(
     - libraries: List of libraries with format [{"id": "library_name", "version": "latest"}]
 
     **Returns JSON with:**
-    - url: Full Compiler Explorer URL with all settings
-    - short_url: Shortened URL for easier sharing
-    - configuration: Summary of the settings included in the URL:
-      - compiler: The compiler that will be used
-      - options: Compiler flags that will be applied
-      - layout: Interface layout that will be shown
+    - url: Shareable Compiler Explorer URL with all settings pre-loaded
 
     **Example Tool Calls:**
 
