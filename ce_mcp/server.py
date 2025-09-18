@@ -12,7 +12,9 @@ from .tools import (
     analyze_optimization,
     compare_compilers,
     generate_share_url,
-    find_experimental_compilers,
+    find_compilers,
+    get_libraries_list,
+    get_library_details_info,
 )
 from .config import Config
 
@@ -596,7 +598,7 @@ async def generate_share_url_tool(
 
 
 @mcp.tool()
-async def find_experimental_compilers_tool(
+async def find_compilers_tool(
     language: str = "c++",
     proposal: str | None = None,
     feature: str | None = None,
@@ -605,8 +607,10 @@ async def find_experimental_compilers_tool(
     search_text: str | None = None,
     ids_only: bool = False,
     include_overrides: bool = False,
+    include_runtime_tools: bool = False,
+    include_compile_tools: bool = False,
 ) -> str:
-    """Find experimental compilers supporting specific proposals or features.
+    """Find compilers with optional filtering by experimental features, proposals, or tools.
 
     Args:
         language: Programming language (default: c++)
@@ -617,17 +621,22 @@ async def find_experimental_compilers_tool(
         search_text: Filter compilers by text search in names and IDs (recommended for token efficiency)
         ids_only: Return only compiler IDs (use sparingly, only when search_text isn't sufficient)
         include_overrides: Include possibleOverrides field for architecture discovery (increases output significantly)
+        include_runtime_tools: Include possibleRuntimeTools field for runtime tool discovery (increases output significantly)
+        include_compile_tools: Include tools field for compile-time tool discovery (increases output significantly)
 
     Examples:
-        - Find P3385 compilers: proposal="P3385"
-        - Find reflection compilers: feature="reflection"
-        - Find all proposal compilers: category="proposals"
+        - Find all C++ compilers: language="c++"
+        - Find GCC compilers: search_text="gcc"
         - Find MSVC compilers: search_text="msvc"
-        - Find nightly compilers: search_text="nightly"
+        - Find P3385 proposal compilers: proposal="P3385"
+        - Find reflection feature compilers: feature="reflection"
+        - Find nightly/experimental compilers: search_text="nightly"
         - Get only compiler IDs for MSVC (if needed): search_text="msvc", ids_only=True
         - Get GCC with architecture overrides: search_text="gcc", include_overrides=True
+        - Get clang 17 with runtime tools: search_text="clang1701", include_runtime_tools=True
+        - Get GCC 13.2 with compile tools: search_text="g132", include_compile_tools=True
     """
-    result = await find_experimental_compilers(
+    result = await find_compilers(
         {
             "language": language,
             "proposal": proposal,
@@ -637,6 +646,62 @@ async def find_experimental_compilers_tool(
             "search_text": search_text,
             "ids_only": ids_only,
             "include_overrides": include_overrides,
+            "include_runtime_tools": include_runtime_tools,
+            "include_compile_tools": include_compile_tools,
+        },
+        config,
+    )
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+async def get_libraries_tool(
+    language: str = "c++",
+    search_text: str | None = None,
+) -> str:
+    """Get simplified list of libraries (id and name only) with optional search.
+
+    Args:
+        language: Programming language (default: c++)
+        search_text: Filter libraries by text search in names and IDs (optional)
+
+    Examples:
+        - Get all C++ libraries: language="c++"
+        - Search for boost libraries: language="c++", search_text="boost"
+        - Search for format libraries: language="c++", search_text="fmt"
+        - Get Rust libraries: language="rust"
+    """
+    result = await get_libraries_list(
+        {
+            "language": language,
+            "search_text": search_text,
+        },
+        config,
+    )
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+async def get_library_details_tool(
+    language: str = "c++",
+    library_id: str = "",
+) -> str:
+    """Get detailed information for a specific library including versions.
+
+    Args:
+        language: Programming language (default: c++)
+        library_id: The ID of the library to get details for (required)
+
+    Examples:
+        - Get boost details: language="c++", library_id="boost"
+        - Get fmt details: language="c++", library_id="fmt"
+        - Get range-v3 details: language="c++", library_id="range-v3"
+        - Get Rust crate details: language="rust", library_id="serde"
+    """
+    result = await get_library_details_info(
+        {
+            "language": language,
+            "library_id": library_id,
         },
         config,
     )

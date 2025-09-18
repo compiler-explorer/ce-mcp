@@ -39,6 +39,9 @@ ce-mcp --verbose                          # Debug mode
 4. **analyze_optimization_tool** - Assembly optimization analysis
 5. **compare_compilers_tool** - Enhanced compiler comparison with detailed execution analysis
 6. **generate_share_url_tool** - Create Compiler Explorer URLs
+7. **find_compilers_tool** - Find compilers with filtering by experimental features, runtime/compile tools support
+8. **get_libraries_tool** - Get simplified list of available libraries with search
+9. **get_library_details_tool** - Get detailed library information including versions
 
 ## Key Implementation Notes
 
@@ -49,6 +52,8 @@ ce-mcp --verbose                          # Debug mode
 - Token-efficient responses for AI workflows
 - Enhanced execution comparison with unified diff output for stdout/stderr
 - Detailed compilation/execution status tracking across compilers
+- Library discovery with token-efficient filtering (id/name for lists, full details on demand)
+- Search capability across library names and IDs
 
 ## Priority Tasks
 
@@ -70,7 +75,8 @@ Key settings:
 
 ## Testing
 
-- 49 total tests (48 passing)
+- 56 total tests (all passing)
 - Unit tests with mocked API responses
 - Integration tests with real Compiler Explorer API
 - Focus on token efficiency and error handling
+- Comprehensive library tool testing

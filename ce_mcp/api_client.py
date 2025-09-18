@@ -356,6 +356,66 @@ class CompilerExplorerClient:
             logger.error(f"Failed to get libraries: {e}")
             raise
 
+    async def get_libraries_list(self, language: str, search_text: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get simplified list of libraries (id and name only) with optional search."""
+        full_libraries = await self.get_libraries(language)
+
+        # Filter to only include id and name
+        simplified_libraries = [
+            {
+                "id": lib.get("id", ""),
+                "name": lib.get("name", "")
+            }
+            for lib in full_libraries
+        ]
+
+        # Apply search filter if provided
+        if search_text:
+            search_lower = search_text.lower()
+            simplified_libraries = [
+                lib for lib in simplified_libraries
+                if (search_lower in lib["id"].lower() or
+                    search_lower in lib["name"].lower())
+            ]
+
+        return simplified_libraries
+
+    async def get_library_details(self, language: str, library_id: str) -> Optional[Dict[str, Any]]:
+        """Get detailed information for a specific library."""
+        full_libraries = await self.get_libraries(language)
+
+        # Find the specific library
+        target_library = None
+        for lib in full_libraries:
+            if lib.get("id") == library_id:
+                target_library = lib
+                break
+
+        if not target_library:
+            return None
+
+        # Filter to only include relevant fields
+        filtered_library = {
+            "id": target_library.get("id", ""),
+            "name": target_library.get("name", ""),
+            "url": target_library.get("url", ""),
+            "description": target_library.get("description", ""),
+            "versions": []
+        }
+
+        # Filter versions to only include version and id
+        if "versions" in target_library:
+            filtered_library["versions"] = [
+                {
+                    "id": version.get("id", ""),
+                    "version": version.get("version", "")
+                }
+                for version in target_library["versions"]
+                if isinstance(version, dict)
+            ]
+
+        return filtered_library
+
     async def get_compiler_version(self, compiler_id: str) -> Dict[str, Any]:
         """Get deployed version information for a compiler."""
         session = await self._get_session()

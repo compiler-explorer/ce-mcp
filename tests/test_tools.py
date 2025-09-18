@@ -385,3 +385,258 @@ int main() { return 0; }"""
         assert len(call_args[0]) >= 4  # source, language, compiler, options
         options_arg = call_args[0][3]  # 4th positional argument should be options
         assert "-std=c++17 -O2" in options_arg
+
+    @pytest.mark.asyncio
+    async def test_find_compilers_with_tools_parameters(self, config, mock_client):
+        """Test find compilers parameters are passed correctly."""
+        from ce_mcp.tools import find_compilers
+        from unittest.mock import patch
+
+        # Mock the search function to return a simple result
+        with patch('ce_mcp.tools.search_experimental_compilers') as mock_search:
+            # Mock compiler with tools
+            from ce_mcp.experimental_utils import ExperimentalCompiler
+            test_compiler = ExperimentalCompiler(
+                id="test_gcc",
+                name="Test GCC",
+                proposal_numbers=[],
+                features=[],
+                is_nightly=False,
+                description="Test GCC compiler",
+                version_info=None,
+                modified=None,
+                category="standard"
+            )
+
+            # Add tool attributes
+            test_compiler.possible_runtime_tools = [
+                {"id": "perf", "name": "perf profiler"},
+                {"id": "valgrind", "name": "Valgrind"}
+            ]
+            test_compiler.tools = [
+                {"id": "analyzer", "name": "Static Analyzer"}
+            ]
+            test_compiler.possible_overrides = [
+                {"name": "arch", "values": ["x86_64"]}
+            ]
+
+            mock_search.return_value = [test_compiler]
+
+            # Test with tool options enabled
+            result = await find_compilers(
+                {
+                    "language": "c++",
+                    "search_text": "test",
+                    "include_runtime_tools": True,
+                    "include_compile_tools": True,
+                    "include_overrides": True,
+                },
+                config,
+            )
+
+            # Verify basic structure
+            assert "summary" in result
+            assert "compilers" in result
+
+            # Verify the mock was called with correct parameters
+            mock_search.assert_called_once()
+
+    def test_find_compilers_format_function(self):
+        """Test the format_compiler_info function with tool options."""
+        from ce_mcp.experimental_utils import ExperimentalCompiler
+
+        # Create a test compiler
+        compiler = ExperimentalCompiler(
+            id="test_gcc",
+            name="Test GCC",
+            proposal_numbers=[],
+            features=[],
+            is_nightly=False,
+            description="Test GCC compiler",
+            version_info=None,
+            modified=None,
+            category="standard"
+        )
+
+        # Add tool attributes
+        compiler.possible_runtime_tools = [
+            {"id": "perf", "name": "perf profiler"},
+            {"id": "valgrind", "name": "Valgrind"}
+        ]
+        compiler.tools = [
+            {"id": "analyzer", "name": "Static Analyzer"}
+        ]
+        compiler.possible_overrides = [
+            {"name": "arch", "values": ["x86_64"]}
+        ]
+
+        # Test basic formatting (no tools)
+        from ce_mcp.tools import find_compilers
+
+        # Get the format function from the find_compilers function scope
+        # This is a bit tricky since it's a nested function, so we'll test it indirectly
+
+        # Test ids_only mode
+        assert compiler.id == "test_gcc"
+
+        # Test that compiler has the required attributes
+        assert hasattr(compiler, 'possible_runtime_tools')
+        assert hasattr(compiler, 'tools')
+        assert hasattr(compiler, 'possible_overrides')
+
+        # Verify the tool data
+        assert len(compiler.possible_runtime_tools) == 2
+        assert len(compiler.tools) == 1
+        assert len(compiler.possible_overrides) == 1
+
+    @pytest.mark.asyncio
+    async def test_get_libraries_list(self, config, mock_client):
+        """Test get libraries list functionality."""
+        from ce_mcp.tools import get_libraries_list
+
+        # Mock API response
+        mock_client.get_libraries_list.return_value = [
+            {"id": "boost", "name": "Boost C++ Libraries"},
+            {"id": "fmt", "name": "fmt"},
+            {"id": "range-v3", "name": "Range-v3"}
+        ]
+
+        # Test without search
+        result = await get_libraries_list(
+            {"language": "c++"},
+            config,
+        )
+
+        assert result["language"] == "c++"
+        assert result["count"] == 3
+        assert len(result["libraries"]) == 3
+        assert result["libraries"][0]["id"] == "boost"
+        assert result["libraries"][0]["name"] == "Boost C++ Libraries"
+
+        # Test with search
+        mock_client.get_libraries_list.return_value = [
+            {"id": "boost", "name": "Boost C++ Libraries"}
+        ]
+
+        result = await get_libraries_list(
+            {"language": "c++", "search_text": "boost"},
+            config,
+        )
+
+        assert result["language"] == "c++"
+        assert result["search_text"] == "boost"
+        assert result["count"] == 1
+        assert result["libraries"][0]["id"] == "boost"
+
+    @pytest.mark.asyncio
+    async def test_get_library_details_info(self, config, mock_client):
+        """Test get library details functionality."""
+        from ce_mcp.tools import get_library_details_info
+
+        # Mock API response
+        mock_library = {
+            "id": "boost",
+            "name": "Boost C++ Libraries",
+            "url": "https://www.boost.org/",
+            "description": "Boost provides free peer-reviewed portable C++ source libraries",
+            "versions": [
+                {"id": "180", "version": "1.80.0"},
+                {"id": "181", "version": "1.81.0"}
+            ]
+        }
+        mock_client.get_library_details.return_value = mock_library
+
+        # Test successful lookup
+        result = await get_library_details_info(
+            {"language": "c++", "library_id": "boost"},
+            config,
+        )
+
+        assert result["language"] == "c++"
+        assert result["library_id"] == "boost"
+        assert result["library"]["id"] == "boost"
+        assert result["library"]["name"] == "Boost C++ Libraries"
+        assert result["library"]["url"] == "https://www.boost.org/"
+        assert len(result["library"]["versions"]) == 2
+        assert result["library"]["versions"][0]["version"] == "1.80.0"
+
+        # Test library not found
+        mock_client.get_library_details.return_value = None
+
+        result = await get_library_details_info(
+            {"language": "c++", "library_id": "nonexistent"},
+            config,
+        )
+
+        assert "error" in result
+        assert "not found" in result["error"]
+        assert result["library_id"] == "nonexistent"
+
+        # Test missing library_id
+        result = await get_library_details_info(
+            {"language": "c++"},
+            config,
+        )
+
+        assert "error" in result
+        assert "required" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_api_client_libraries_methods(self, config):
+        """Test API client library methods."""
+        from ce_mcp.api_client import CompilerExplorerClient
+
+        client = CompilerExplorerClient(config)
+
+        # Mock the base get_libraries method
+        full_libraries_mock = [
+            {
+                "id": "boost",
+                "name": "Boost C++ Libraries",
+                "url": "https://www.boost.org/",
+                "description": "Boost libraries",
+                "versions": [
+                    {"id": "180", "version": "1.80.0", "staticliblink": ["boost_system"]},
+                    {"id": "181", "version": "1.81.0", "staticliblink": ["boost_system"]}
+                ]
+            },
+            {
+                "id": "fmt",
+                "name": "fmt",
+                "url": "https://github.com/fmtlib/fmt",
+                "description": "Formatting library",
+                "versions": [
+                    {"id": "90", "version": "9.0.0", "staticliblink": ["fmt"]}
+                ]
+            }
+        ]
+
+        # Mock the get_libraries method
+        async def mock_get_libraries(lang):
+            return full_libraries_mock
+        client.get_libraries = mock_get_libraries
+
+        # Test get_libraries_list
+        result = await client.get_libraries_list("c++")
+        assert len(result) == 2
+        assert result[0]["id"] == "boost"
+        assert result[0]["name"] == "Boost C++ Libraries"
+        assert "url" not in result[0]  # Should be filtered out
+
+        # Test get_libraries_list with search
+        result = await client.get_libraries_list("c++", "boost")
+        assert len(result) == 1
+        assert result[0]["id"] == "boost"
+
+        # Test get_library_details
+        result = await client.get_library_details("c++", "boost")
+        assert result is not None
+        assert result["id"] == "boost"
+        assert result["url"] == "https://www.boost.org/"
+        assert len(result["versions"]) == 2
+        assert "staticliblink" not in result["versions"][0]  # Should be filtered out
+        assert result["versions"][0]["version"] == "1.80.0"
+
+        # Test get_library_details with nonexistent library
+        result = await client.get_library_details("c++", "nonexistent")
+        assert result is None

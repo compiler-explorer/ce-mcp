@@ -979,10 +979,10 @@ async def generate_share_url(
     }
 
 
-async def find_experimental_compilers(
+async def find_compilers(
     arguments: Dict[str, Any], config: Config
 ) -> Dict[str, Any]:
-    """Find experimental compilers supporting specific proposals or features."""
+    """Find compilers with optional filtering by experimental features, proposals, or tools."""
     language = arguments.get("language", "c++")
     proposal = arguments.get("proposal")
     feature = arguments.get("feature")
@@ -991,6 +991,8 @@ async def find_experimental_compilers(
     search_text = arguments.get("search_text")
     ids_only = arguments.get("ids_only", False)
     include_overrides = arguments.get("include_overrides", False)
+    include_runtime_tools = arguments.get("include_runtime_tools", False)
+    include_compile_tools = arguments.get("include_compile_tools", False)
 
     def apply_text_filter(compilers_list, search_text):
         """Filter compilers by search text in names and IDs (case-insensitive)."""
@@ -1002,8 +1004,8 @@ async def find_experimental_compilers(
             if search_lower in comp.id.lower() or search_lower in comp.name.lower()
         ]
 
-    def format_compiler_info(comp, ids_only=False, include_overrides=False):
-        """Format compiler info with optional ids_only mode and overrides."""
+    def format_compiler_info(comp, ids_only=False, include_overrides=False, include_runtime_tools=False, include_compile_tools=False):
+        """Format compiler info with optional ids_only mode, overrides, and tools."""
         if ids_only:
             return comp.id
 
@@ -1021,6 +1023,14 @@ async def find_experimental_compilers(
         # Add possibleOverrides if requested and available
         if include_overrides and hasattr(comp, 'possible_overrides'):
             info["possible_overrides"] = comp.possible_overrides
+
+        # Add possibleRuntimeTools if requested and available
+        if include_runtime_tools and hasattr(comp, 'possible_runtime_tools'):
+            info["possible_runtime_tools"] = comp.possible_runtime_tools
+
+        # Add tools (compile-time tools) if requested and available
+        if include_compile_tools and hasattr(comp, 'tools'):
+            info["tools"] = comp.tools
 
         return info
 
@@ -1063,7 +1073,7 @@ async def find_experimental_compilers(
                     result["categories"][cat_name] = {
                         "count": len(filtered_compilers),
                         "compilers": [
-                            format_compiler_info(comp, ids_only, include_overrides)
+                            format_compiler_info(comp, ids_only, include_overrides, include_runtime_tools, include_compile_tools)
                             for comp in filtered_compilers
                         ],
                     }
@@ -1090,9 +1100,9 @@ async def find_experimental_compilers(
                 },
                 "compilers": [
                     {
-                        **format_compiler_info(comp, ids_only, include_overrides),
+                        **format_compiler_info(comp, ids_only, include_overrides, include_runtime_tools, include_compile_tools),
                         "category": comp.category,
-                    } if not ids_only else format_compiler_info(comp, ids_only, include_overrides)
+                    } if not ids_only else format_compiler_info(comp, ids_only, include_overrides, include_runtime_tools, include_compile_tools)
                     for comp in filtered_experimental
                 ],
             }
@@ -1120,6 +1130,78 @@ async def find_experimental_compilers(
                 }
 
         return result
+
+    finally:
+        await client.close()
+
+
+async def get_libraries_list(
+    arguments: Dict[str, Any], config: Config
+) -> Dict[str, Any]:
+    """Get simplified list of libraries (id and name only) with optional search."""
+    language = arguments.get("language", "c++")
+    search_text = arguments.get("search_text")
+
+    client = CompilerExplorerClient(config)
+
+    try:
+        libraries = await client.get_libraries_list(language, search_text)
+
+        return {
+            "language": language,
+            "search_text": search_text,
+            "count": len(libraries),
+            "libraries": libraries
+        }
+
+    except Exception as e:
+        return {
+            "error": f"Failed to get libraries: {str(e)}",
+            "language": language,
+            "search_text": search_text
+        }
+
+    finally:
+        await client.close()
+
+
+async def get_library_details_info(
+    arguments: Dict[str, Any], config: Config
+) -> Dict[str, Any]:
+    """Get detailed information for a specific library."""
+    language = arguments.get("language", "c++")
+    library_id = arguments.get("library_id")
+
+    if not library_id:
+        return {
+            "error": "library_id parameter is required",
+            "language": language
+        }
+
+    client = CompilerExplorerClient(config)
+
+    try:
+        library = await client.get_library_details(language, library_id)
+
+        if library is None:
+            return {
+                "error": f"Library '{library_id}' not found for language '{language}'",
+                "language": language,
+                "library_id": library_id
+            }
+
+        return {
+            "language": language,
+            "library_id": library_id,
+            "library": library
+        }
+
+    except Exception as e:
+        return {
+            "error": f"Failed to get library details: {str(e)}",
+            "language": language,
+            "library_id": library_id
+        }
 
     finally:
         await client.close()

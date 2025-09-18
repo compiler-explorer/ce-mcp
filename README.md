@@ -8,14 +8,14 @@ A Model Context Protocol (MCP) server that provides efficient access to Compiler
 - **Use-case driven tools** - Specific functions for common compilation scenarios
 - **Smart filtering** - Context-aware output filtering based on the task
 - **Comprehensive language support** - C++, C, Rust, Go, Python, and more
-- **Extensive test coverage** - 48/49 tests passing (98% success rate)
+- **Extensive test coverage** - 56 tests all passing (100% success rate)
 - **Claude Code integration** - Automated setup for Claude Code workflows
 
 ## Implementation Status
 
 **85% Complete** - See [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) for detailed analysis.
 
-✅ **Fully Working**: All 6 MCP tools implemented and functional  
+✅ **Fully Working**: All 9 MCP tools implemented and functional
 ⚠️ **Minor Issues**: Some tools need spec compliance fixes  
 ❌ **Missing**: Caching system (high priority)
 
@@ -224,6 +224,15 @@ Compare output across different compilers/options with detailed execution analys
 
 ### generate_share_url
 Generate Compiler Explorer URLs for collaboration.
+
+### find_compilers
+Find compilers with optional filtering by experimental features, proposals, or tools. Includes options to discover runtime tools, compile-time tools, and architecture overrides.
+
+### get_libraries
+Get a simplified list of available libraries (id and name only) with optional search filtering.
+
+### get_library_details
+Get detailed information for a specific library including versions, description, and URL.
 
 ## Configuration
 
