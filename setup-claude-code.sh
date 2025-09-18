@@ -43,19 +43,20 @@ command_exists() {
 # Main setup function
 main() {
     print_header
-    
+
     # Remember the directory where the script is located (ce-mcp source directory)
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    
+
     # Parse command line arguments
     PROJECT_DIR=""
     GLOBAL_INSTALL=false
     GLOBAL_MCP=false
-    REMOVE_OLD_MCP=false
     NON_INTERACTIVE=false
     DEFAULT_LANG="c++"
     DEFAULT_COMPILER="g++"
-    
+    UNINSTALL=false
+    MCP_NAME="ce-mcp"
+
     while [[ $# -gt 0 ]]; do
         case $1 in
             --project-dir)
@@ -70,10 +71,6 @@ main() {
                 GLOBAL_MCP=true
                 shift
                 ;;
-            --remove-old-mcp)
-                REMOVE_OLD_MCP=true
-                shift
-                ;;
             --non-interactive)
                 NON_INTERACTIVE=true
                 shift
@@ -86,6 +83,10 @@ main() {
                 DEFAULT_COMPILER="$2"
                 shift 2
                 ;;
+            --uninstall)
+                UNINSTALL=true
+                shift
+                ;;
             --help)
                 show_help
                 exit 0
@@ -97,7 +98,7 @@ main() {
                 ;;
         esac
     done
-    
+
     # If no project directory specified, ask user (unless non-interactive)
     if [[ -z "$PROJECT_DIR" ]]; then
         if [[ "$NON_INTERACTIVE" == false ]]; then
@@ -108,48 +109,68 @@ main() {
             PROJECT_DIR="$(pwd)"
         fi
     fi
-    
+
     # Convert to absolute path
-    PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
-    
+    if [[ -d "$PROJECT_DIR" ]]; then
+        PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
+    else
+        mkdir -p "$PROJECT_DIR"
+        PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
+    fi
+
+    # Handle uninstall if requested
+    if [[ "$UNINSTALL" == true ]]; then
+        uninstall_mcp_server
+        exit 0
+    fi
+
     print_info "Setting up Compiler Explorer MCP for Claude Code"
     print_info "Project directory: $PROJECT_DIR"
     print_info "Source directory: $SCRIPT_DIR"
     echo ""
-    
+
     # Step 1: Check prerequisites
     print_step "Checking prerequisites..."
     check_prerequisites
-    
+
     # Step 2: Install the MCP server
     print_step "Installing Compiler Explorer MCP server..."
     install_mcp_server
-    
+
     # Step 3: Create project configuration
-    print_step "Creating Claude Code configuration..."
-    create_claude_config
-    
-    # Step 4: Verify installation
+    print_step "Creating project configuration..."
+    create_project_config
+
+    # Step 4: Register MCP server with Claude
+    print_step "Registering MCP server with Claude..."
+    register_mcp_server
+
+    # Step 5: Verify installation
     print_step "Verifying installation..."
     verify_installation
-    
-    # Step 5: Show success message and next steps
+
+    # Step 6: Show success message and next steps
     show_completion_message
 }
 
 check_prerequisites() {
     local missing_deps=()
-    
+
     # Check for Python
     if ! command_exists python3; then
         missing_deps+=("python3")
     fi
-    
+
+    # Check for Claude CLI
+    if ! command_exists claude; then
+        missing_deps+=("claude")
+    fi
+
     # Check for UV or pip
     if ! command_exists uv && ! command_exists pip; then
         missing_deps+=("uv or pip")
     fi
-    
+
     if [[ ${#missing_deps[@]} -gt 0 ]]; then
         print_error "Missing dependencies: ${missing_deps[*]}"
         echo ""
@@ -159,6 +180,9 @@ check_prerequisites() {
                 "python3")
                     echo "  - Python 3.8+: https://python.org/downloads"
                     ;;
+                "claude")
+                    echo "  - Claude Code: https://claude.ai/download"
+                    ;;
                 "uv or pip")
                     echo "  - UV: curl -LsSf https://astral.sh/uv/install.sh | sh"
                     echo "  - Or use pip (comes with Python)"
@@ -167,7 +191,7 @@ check_prerequisites() {
         done
         exit 1
     fi
-    
+
     print_success "All prerequisites found"
 }
 
@@ -175,7 +199,7 @@ install_mcp_server() {
     # Check if we're running the script from the ce-mcp development directory
     if [[ -f "$SCRIPT_DIR/pyproject.toml" ]] && grep -q "ce-mcp" "$SCRIPT_DIR/pyproject.toml"; then
         print_info "Found ce-mcp development directory at: $SCRIPT_DIR"
-        
+
         if [[ "$GLOBAL_INSTALL" == true ]]; then
             print_info "Installing globally with pipx..."
             if ! command_exists pipx; then
@@ -184,193 +208,71 @@ install_mcp_server() {
                     uv tool install pipx
                 else
                     python3 -m pip install --user pipx
+                    python3 -m pipx ensurepath
                 fi
             fi
-            
+
+            # Install with pipx
             pipx install "$SCRIPT_DIR"
             CE_MCP_COMMAND="ce-mcp"
+
         else
-            # Check if we're already in the source directory
-            if [[ "$PROJECT_DIR" == "$SCRIPT_DIR" ]]; then
-                print_info "Installing in development mode in source directory..."
-                cd "$SCRIPT_DIR"
-                
+            print_info "Installing in project environment from source: $SCRIPT_DIR"
+            cd "$PROJECT_DIR"
+
+            # Create virtual environment if it doesn't exist
+            if [[ ! -d ".venv" ]]; then
                 if command_exists uv; then
-                    if [[ ! -d ".venv" ]]; then
-                        uv venv --seed
-                    fi
-                    source .venv/bin/activate
-                    uv pip install -e .
+                    uv venv --seed
                 else
-                    if [[ ! -d ".venv" ]]; then
-                        python3 -m venv .venv
-                    fi
-                    source .venv/bin/activate
-                    pip install -e .
+                    python3 -m venv .venv
                 fi
-                
-                CE_MCP_COMMAND="$SCRIPT_DIR/.venv/bin/ce-mcp"
-            else
-                print_info "Installing in project environment from source: $SCRIPT_DIR"
-                cd "$PROJECT_DIR"
-                
-                if command_exists uv; then
-                    if [[ ! -d ".venv" ]]; then
-                        uv venv --seed
-                    fi
-                    source .venv/bin/activate
-                    uv pip install -e "$SCRIPT_DIR"
-                else
-                    if [[ ! -d ".venv" ]]; then
-                        python3 -m venv .venv
-                    fi
-                    source .venv/bin/activate
-                    pip install -e "$SCRIPT_DIR"
-                fi
-                
-                CE_MCP_COMMAND="ce-mcp"
             fi
+
+            # Install ce-mcp in the virtual environment
+            if command_exists uv; then
+                source .venv/bin/activate
+                uv pip install -e "$SCRIPT_DIR"
+                deactivate
+            else
+                source .venv/bin/activate
+                pip install -e "$SCRIPT_DIR"
+                deactivate
+            fi
+
+            # Use a wrapper script that activates venv first
+            CE_MCP_WRAPPER="$PROJECT_DIR/.ce-mcp-wrapper.sh"
+            cat > "$CE_MCP_WRAPPER" << 'EOF'
+#!/bin/bash
+# Wrapper script for ce-mcp that activates the virtual environment
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/.venv/bin/activate"
+exec ce-mcp "$@"
+EOF
+            chmod +x "$CE_MCP_WRAPPER"
+            CE_MCP_COMMAND="$CE_MCP_WRAPPER"
         fi
     else
         print_error "Cannot find ce-mcp source at: $SCRIPT_DIR"
         print_error "Please ensure the script is in the ce-mcp directory with pyproject.toml"
         exit 1
     fi
-    
+
     print_success "MCP server installed successfully"
 }
 
-create_claude_config() {
+create_project_config() {
     cd "$PROJECT_DIR"
-    
-    # Use absolute path to ce-mcp command
-    if [[ -f "$PROJECT_DIR/.venv/bin/ce-mcp" ]]; then
-        CE_MCP_PATH="$PROJECT_DIR/.venv/bin/ce-mcp"
-    else
-        CE_MCP_PATH="ce-mcp"
-    fi
-    
-    CLAUDE_DIR="$HOME/.claude"
-    CLAUDE_GLOBAL_CONFIG="$HOME/.claude.json"
-    CLAUDE_SETTINGS="$CLAUDE_DIR/settings.json"
-    
-    mkdir -p "$CLAUDE_DIR"
-    
-    if [[ "$GLOBAL_MCP" == true ]]; then
-        print_info "Creating global Claude Code MCP configuration..."
-        
-        # Create backup of global config if it exists
-        if [[ -f "$CLAUDE_GLOBAL_CONFIG" ]]; then
-            cp "$CLAUDE_GLOBAL_CONFIG" "$CLAUDE_GLOBAL_CONFIG.backup.$(date +%Y%m%d_%H%M%S)"
-            print_info "Backup created: $CLAUDE_GLOBAL_CONFIG.backup.$(date +%Y%m%d_%H%M%S)"
-        fi
-        
-        # Install MCP server globally in ~/.claude.json
-        python3 -c "
-import json
-import os
 
-config_file = '$CLAUDE_GLOBAL_CONFIG'
-config = {}
-
-# Load existing config if it exists
-if os.path.exists(config_file):
-    try:
-        with open(config_file, 'r') as f:
-            config = json.load(f)
-    except:
-        config = {}
-
-# Add or update mcpServers
-if 'mcpServers' not in config:
-    config['mcpServers'] = {}
-
-# Remove old compiler-explorer MCP if requested
-remove_old = '$REMOVE_OLD_MCP' == 'true'
-if remove_old and 'compiler-explorer' in config['mcpServers']:
-    print('Removing old compiler-explorer MCP server...')
-    del config['mcpServers']['compiler-explorer']
-
-config['mcpServers']['ce-mcp'] = {
-    'command': '$CE_MCP_PATH',
-    'args': ['--config', '$PROJECT_DIR/.ce-mcp-config.yaml']
-}
-
-# Save updated config
-with open(config_file, 'w') as f:
-    json.dump(config, f, indent=2)
-
-if remove_old:
-    print('Old compiler-explorer MCP removed and ce-mcp added successfully')
-else:
-    print('Global MCP server configuration added successfully')
-"
-        
-        print_success "Global MCP configuration created"
-        print_info "  - $CLAUDE_GLOBAL_CONFIG (global MCP server configuration)"
-        
-    else
-        print_info "Creating Claude Code project configuration..."
-        
-        # Create project-specific .claude.json file for Claude Code
-        cat > .claude.json << EOF
-{
-  "mcp_servers": {
-    "ce-mcp": {
-      "command": "$CE_MCP_PATH",
-      "args": ["--config", "./.ce-mcp-config.yaml"]
-    }
-  }
-}
-EOF
-        
-        # Configure global settings for auto-approval
-        print_info "Configuring Claude Code global settings for MCP auto-approval..."
-        
-        # Check if settings file exists and merge, otherwise create new
-        if [[ -f "$CLAUDE_SETTINGS" ]]; then
-            print_info "Found existing Claude Code settings, updating..."
-            
-            # Create backup
-            cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.backup.$(date +%Y%m%d_%H%M%S)"
-            print_info "Backup created: $CLAUDE_SETTINGS.backup.$(date +%Y%m%d_%H%M%S)"
-            
-            # Use Python to safely update JSON
-            python3 -c "
-import json
-try:
-    with open('$CLAUDE_SETTINGS') as f:
-        data = json.load(f)
-    data['enableAllProjectMcpServers'] = True
-    with open('$CLAUDE_SETTINGS', 'w') as f:
-        json.dump(data, f, indent=2)
-except:
-    # Fallback if parsing fails
-    with open('$CLAUDE_SETTINGS', 'w') as f:
-        f.write('{\"enableAllProjectMcpServers\": true}')
-"
-        else
-            print_info "Creating new Claude Code settings file..."
-            cat > "$CLAUDE_SETTINGS" << EOF
-{
-  "enableAllProjectMcpServers": true
-}
-EOF
-        fi
-        
-        print_success "Project MCP configuration created"
-        print_info "  - .claude.json (project MCP server configuration)"
-    fi
-    
     # Create .ce-mcp-config.yaml with interactive prompts
-    print_info "Creating .ce-mcp-config.yaml..."
-    
+    print_info "Creating project configuration..."
+
     if [[ "$NON_INTERACTIVE" == false ]]; then
         # Ask for default language
         echo -e "${YELLOW}What's your primary programming language? (c++/c/rust/go/python) [c++]:${NC}"
         read -r INPUT_LANG
         DEFAULT_LANG=${INPUT_LANG:-"c++"}
-        
+
         # Ask for default compiler
         case $DEFAULT_LANG in
             "c++"|"c")
@@ -412,61 +314,96 @@ EOF
         esac
         print_info "Using language: $DEFAULT_LANG, compiler: $DEFAULT_COMPILER"
     fi
-    
+
     # Create configuration file
-    cat > .ce-mcp-config.yaml << EOF
+    cat > "$PROJECT_DIR/.ce-mcp-config.yaml" << EOF
 # Project-specific Compiler Explorer MCP configuration
 compiler_explorer_mcp:
   api:
     timeout: 30
-    
+
   defaults:
     language: "$DEFAULT_LANG"
     compiler: "$DEFAULT_COMPILER"
     extract_args_from_source: true
-    
+
   filters:
     commentOnly: true
     demangle: true
     intel: true
     labels: true
-    
+
   output_limits:
     max_stdout_lines: 50
     max_stderr_lines: 25
     max_assembly_lines: 100
     max_line_length: 120
-    
+
   compiler_mappings:
     "g++": "g132"
-    "gcc": "g132" 
+    "gcc": "g132"
     "clang++": "clang1700"
     "clang": "clang1700"
     "rustc": "r1740"
     "go": "gccgo132"
     "python": "python311"
 EOF
-    
-    print_success "Configuration files created"
-    print_info "  - .claude.json (MCP server configuration)"
-    print_info "  - .ce-mcp-config.yaml (project settings)"
+
+    print_success "Configuration file created: .ce-mcp-config.yaml"
+}
+
+register_mcp_server() {
+    # First remove any existing ce-mcp server
+    print_info "Checking for existing ce-mcp server..."
+    if claude mcp list 2>/dev/null | grep -q "$MCP_NAME"; then
+        print_info "Removing existing $MCP_NAME server..."
+        claude mcp remove "$MCP_NAME" >/dev/null 2>&1 || true
+    fi
+
+    # Register the MCP server using claude mcp add
+    # The arguments after the command are passed to the MCP server
+    CONFIG_PATH="$PROJECT_DIR/.ce-mcp-config.yaml"
+
+    # Determine scope
+    SCOPE_ARG=""
+    if [[ "$GLOBAL_MCP" == true ]]; then
+        SCOPE_ARG="--scope user"
+        print_info "Registering MCP server globally..."
+    else
+        SCOPE_ARG="--scope project"
+        print_info "Registering MCP server for this project..."
+    fi
+
+    # Register with claude mcp add
+    # Use -- to separate claude mcp options from MCP server arguments
+    claude mcp add $SCOPE_ARG "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH"
+
+    if [[ $? -eq 0 ]]; then
+        print_success "MCP server registered successfully with Claude"
+    else
+        print_error "Failed to register MCP server"
+        print_info "You can try manually registering with:"
+        echo "  claude mcp add $SCOPE_ARG \"$MCP_NAME\" \"$CE_MCP_COMMAND\" -- --config \"$CONFIG_PATH\""
+        exit 1
+    fi
 }
 
 verify_installation() {
     cd "$PROJECT_DIR"
-    
-    # Test that ce-mcp command works
-    if [[ -f ".venv/bin/ce-mcp" ]]; then
-        print_info "Testing local installation..."
-        source .venv/bin/activate
-        if .venv/bin/ce-mcp --help > /dev/null 2>&1; then
-            print_success "ce-mcp command works correctly"
+
+    # Test that the MCP command works
+    print_info "Testing MCP server command..."
+
+    if [[ -f "$CE_MCP_WRAPPER" ]]; then
+        # Test wrapper script
+        if "$CE_MCP_WRAPPER" --help > /dev/null 2>&1; then
+            print_success "MCP wrapper script works correctly"
         else
-            print_error "ce-mcp command failed"
+            print_error "MCP wrapper script failed"
             exit 1
         fi
     elif command_exists ce-mcp; then
-        print_info "Testing global installation..."
+        # Test global installation
         if ce-mcp --help > /dev/null 2>&1; then
             print_success "ce-mcp command works correctly"
         else
@@ -477,18 +414,26 @@ verify_installation() {
         print_error "ce-mcp command not found"
         exit 1
     fi
-    
-    # Check configuration files
-    CLAUDE_SETTINGS="$HOME/.claude/settings.json"
-    if [[ -f "$PROJECT_DIR/.claude.json" ]] && [[ -f "$PROJECT_DIR/.ce-mcp-config.yaml" ]]; then
-        print_success "Configuration files created successfully"
-        print_info "  - $PROJECT_DIR/.claude.json (project MCP configuration)"
-        print_info "  - $PROJECT_DIR/.ce-mcp-config.yaml (project settings)"
-        if [[ -f "$CLAUDE_SETTINGS" ]]; then
-            print_info "  - $CLAUDE_SETTINGS (global settings with auto-approval)"
-        fi
+
+    # Check that MCP server is registered with Claude
+    print_info "Verifying MCP registration..."
+    if claude mcp list 2>/dev/null | grep -q "$MCP_NAME"; then
+        print_success "MCP server is registered with Claude"
+
+        # Show MCP server details
+        echo ""
+        print_info "MCP server details:"
+        claude mcp get "$MCP_NAME" 2>/dev/null || true
     else
-        print_error "Configuration files missing"
+        print_error "MCP server not found in Claude configuration"
+        exit 1
+    fi
+
+    # Check configuration file
+    if [[ -f "$PROJECT_DIR/.ce-mcp-config.yaml" ]]; then
+        print_success "Configuration file exists: .ce-mcp-config.yaml"
+    else
+        print_error "Configuration file missing"
         exit 1
     fi
 }
@@ -500,16 +445,22 @@ show_completion_message() {
     echo -e "${GREEN}Your project is now configured for Claude Code with Compiler Explorer MCP!${NC}"
     echo ""
     echo -e "${YELLOW}Next steps:${NC}"
-    echo "1. Open your project in Claude Code"
-    echo "2. Try using the MCP tools:"
-    echo "   @compiler-explorer compile_check_tool source=\"int main(){return 0;}\" language=\"$DEFAULT_LANG\" compiler=\"$DEFAULT_COMPILER\""
+    echo "1. Restart Claude Code (or reload the window)"
+    echo "2. The MCP server should be automatically available"
+    echo "3. Try using the MCP tools with @$MCP_NAME:"
     echo ""
-    echo -e "${YELLOW}Configuration files created:${NC}"
-    echo "  📄 .claude.json - Project MCP server configuration"
+    echo -e "${YELLOW}Example usage:${NC}"
+    echo "  Ask Claude: \"@$MCP_NAME compile and run this code: int main(){return 0;}\""
+    echo ""
+    echo -e "${YELLOW}Configuration:${NC}"
+    if [[ "$GLOBAL_MCP" == true ]]; then
+        echo "  📄 MCP server registered globally (available in all projects)"
+    else
+        echo "  📄 MCP server registered for this project"
+    fi
     echo "  ⚙️  .ce-mcp-config.yaml - Project-specific settings"
-    echo "  🌐 ~/.claude/settings.json - Global settings with auto-approval"
     echo ""
-    echo -e "${YELLOW}Available tools:${NC}"
+    echo -e "${YELLOW}Available tools via @$MCP_NAME:${NC}"
     echo "  🔍 compile_check_tool - Quick syntax validation"
     echo "  🚀 compile_and_run_tool - Compile and execute code"
     echo "  🐛 compile_with_diagnostics_tool - Detailed error analysis"
@@ -517,32 +468,147 @@ show_completion_message() {
     echo "  🔗 generate_share_url_tool - Create shareable links"
     echo "  📊 compare_compilers_tool - Side-by-side compiler comparison"
     echo ""
+    echo -e "${YELLOW}Managing the MCP server:${NC}"
+    echo "  claude mcp list              - List all MCP servers"
+    echo "  claude mcp get $MCP_NAME     - Show server details"
+    echo "  claude mcp remove $MCP_NAME  - Remove the server"
+    echo ""
     echo -e "${BLUE}Happy coding! 🚀${NC}"
+}
+
+uninstall_mcp_server() {
+    print_header
+    print_info "Uninstalling Compiler Explorer MCP server..."
+    echo ""
+
+    # Remove MCP server from Claude (try all scopes)
+    if command_exists claude; then
+        # Check and remove from project scope
+        cd "$PROJECT_DIR" 2>/dev/null || true
+        if claude mcp list 2>/dev/null | grep -q "$MCP_NAME"; then
+            print_info "Removing $MCP_NAME from Claude (project scope)..."
+            claude mcp remove "$MCP_NAME" 2>/dev/null || true
+            print_success "Removed $MCP_NAME from Claude project configuration"
+        fi
+
+        # Try to remove from user/global scope (will silently fail if not present)
+        print_info "Checking for global MCP configuration..."
+        if claude mcp remove --scope user "$MCP_NAME" 2>/dev/null; then
+            print_success "Removed $MCP_NAME from Claude global configuration"
+        fi
+    fi
+
+    # Remove from project directory
+    if [[ -d "$PROJECT_DIR" ]]; then
+        cd "$PROJECT_DIR"
+
+        # Remove wrapper script
+        if [[ -f ".ce-mcp-wrapper.sh" ]]; then
+            print_info "Removing wrapper script..."
+            rm -f .ce-mcp-wrapper.sh
+            print_success "Removed .ce-mcp-wrapper.sh"
+        fi
+
+        # Remove virtual environment if it contains ce-mcp
+        if [[ -d ".venv" ]] && [[ -f ".venv/bin/ce-mcp" ]]; then
+            if [[ "$NON_INTERACTIVE" == false ]]; then
+                echo -e "${YELLOW}Remove virtual environment? (y/N):${NC}"
+                read -r REMOVE_VENV
+                if [[ "$REMOVE_VENV" =~ ^[Yy]$ ]]; then
+                    rm -rf .venv
+                    print_success "Removed virtual environment"
+                else
+                    # Just uninstall ce-mcp from venv
+                    source .venv/bin/activate
+                    pip uninstall ce-mcp -y 2>/dev/null || true
+                    deactivate
+                    print_success "Removed ce-mcp from virtual environment"
+                fi
+            else
+                # Just uninstall ce-mcp from venv
+                source .venv/bin/activate
+                pip uninstall ce-mcp -y 2>/dev/null || true
+                deactivate
+                print_success "Removed ce-mcp from virtual environment"
+            fi
+        fi
+
+        # Remove configuration file
+        if [[ -f ".ce-mcp-config.yaml" ]]; then
+            print_info "Removing .ce-mcp-config.yaml..."
+            rm -f .ce-mcp-config.yaml
+            print_success "Removed .ce-mcp-config.yaml"
+        fi
+
+        # Remove old .claude.json if it exists and contains ce-mcp
+        if [[ -f ".claude.json" ]] && grep -q "ce-mcp" .claude.json 2>/dev/null; then
+            print_info "Found old .claude.json with ce-mcp configuration..."
+            if [[ "$NON_INTERACTIVE" == false ]]; then
+                echo -e "${YELLOW}Remove .claude.json? (y/N):${NC}"
+                read -r REMOVE_CONFIG
+                if [[ "$REMOVE_CONFIG" =~ ^[Yy]$ ]]; then
+                    rm -f .claude.json
+                    print_success "Removed .claude.json"
+                fi
+            else
+                rm -f .claude.json
+                print_success "Removed .claude.json"
+            fi
+        fi
+    fi
+
+    # Check for global installation
+    if command_exists pipx; then
+        if pipx list 2>/dev/null | grep -q "ce-mcp"; then
+            print_info "Removing global pipx installation..."
+            pipx uninstall ce-mcp 2>/dev/null || true
+            print_success "Removed global ce-mcp installation"
+        fi
+    fi
+
+    echo ""
+    print_success "Uninstall complete!"
+    echo ""
+    echo -e "${YELLOW}Removed:${NC}"
+    echo "  ✓ $MCP_NAME from Claude MCP servers"
+    echo "  ✓ ce-mcp package from virtual environment (if present)"
+    echo "  ✓ Project configuration files (.ce-mcp-config.yaml, wrapper script)"
+    echo "  ✓ Global ce-mcp installation (if present)"
+    echo ""
+    echo -e "${BLUE}The ce-mcp source code remains at: $SCRIPT_DIR${NC}"
 }
 
 show_help() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
-    echo "Setup Compiler Explorer MCP server for Claude Code"
+    echo "Setup or uninstall Compiler Explorer MCP server for Claude Code"
     echo ""
     echo "Options:"
     echo "  --project-dir DIR    Target project directory (default: current directory)"
-    echo "  --global            Install globally with pipx instead of project-local"
-    echo "  --global-mcp        Install MCP server globally instead of per-project"
-    echo "  --remove-old-mcp    Remove existing 'compiler-explorer' MCP server"
+    echo "  --global            Install ce-mcp globally with pipx instead of project-local"
+    echo "  --global-mcp        Register MCP server globally (available in all projects)"
     echo "  --non-interactive   Skip interactive prompts, use defaults"
     echo "  --language LANG     Default language (c++, c, rust, go, python)"
     echo "  --compiler COMP     Default compiler (g++, clang++, rustc, etc.)"
+    echo "  --uninstall         Uninstall ce-mcp and remove configuration"
     echo "  --help              Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0                                    # Setup in current directory"
     echo "  $0 --project-dir ~/my-cpp-project    # Setup in specific project"
-    echo "  $0 --global                          # Install globally"
-    echo "  $0 --global-mcp                      # Install MCP globally (available everywhere)"
-    echo "  $0 --global-mcp --remove-old-mcp     # Replace old MCP with new one"
+    echo "  $0 --global                          # Install ce-mcp globally"
+    echo "  $0 --global-mcp                      # Register MCP globally (all projects)"
     echo "  $0 --non-interactive                 # Use defaults without prompts"
     echo "  $0 --language rust --compiler rustc  # Setup for Rust"
+    echo "  $0 --uninstall                       # Uninstall ce-mcp"
+    echo ""
+    echo "The script will:"
+    echo "  1. Install the ce-mcp Python package"
+    echo "  2. Create project configuration (.ce-mcp-config.yaml)"
+    echo "  3. Register the MCP server with Claude using 'claude mcp add'"
+    echo "  4. Verify the installation"
+    echo ""
+    echo "After setup, the MCP server will be available in Claude Code via @ce-mcp"
 }
 
 # Run main function
