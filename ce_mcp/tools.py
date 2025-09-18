@@ -434,7 +434,6 @@ async def analyze_optimization(
             inst in asm_text
             for inst in ["movdqu", "movups", "vmovups", "vaddps", "vmov", "vadd"]
         ),
-        "loop_unrolling": False,
         "function_inlining": "call" not in asm_text.lower(),  # Simple heuristic
         "simd_instructions": [
             inst
