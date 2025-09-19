@@ -400,31 +400,33 @@ register_mcp_server() {
     # The arguments after the command are passed to the MCP server
     CONFIG_PATH="$PROJECT_DIR/.ce-mcp-config.yaml"
 
-    # Determine scope
-    SCOPE_ARG=""
+    # Determine scope message
     if [[ "$GLOBAL_MCP" == true ]]; then
-        SCOPE_ARG="--scope user"
         print_info "Registering MCP server globally..."
     else
-        SCOPE_ARG="--scope project"
         print_info "Registering MCP server for this project..."
     fi
 
     # Register with claude mcp add
     # Use -- to separate claude mcp options from MCP server arguments
     if [[ "$QUIET" == true ]]; then
-        claude mcp add $SCOPE_ARG "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH" >/dev/null 2>&1
+        if claude mcp add "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH" >/dev/null 2>&1; then
+            print_success "MCP server registered successfully with Claude"
+        else
+            print_error "Failed to register MCP server"
+            print_info "You can try manually registering with:"
+            echo "  claude mcp add \"$MCP_NAME\" \"$CE_MCP_COMMAND\" -- --config \"$CONFIG_PATH\""
+            exit 1
+        fi
     else
-        claude mcp add $SCOPE_ARG "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH"
-    fi
-
-    if [[ $? -eq 0 ]]; then
-        print_success "MCP server registered successfully with Claude"
-    else
-        print_error "Failed to register MCP server"
-        print_info "You can try manually registering with:"
-        echo "  claude mcp add $SCOPE_ARG \"$MCP_NAME\" \"$CE_MCP_COMMAND\" -- --config \"$CONFIG_PATH\""
-        exit 1
+        if claude mcp add "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH"; then
+            print_success "MCP server registered successfully with Claude"
+        else
+            print_error "Failed to register MCP server"
+            print_info "You can try manually registering with:"
+            echo "  claude mcp add \"$MCP_NAME\" \"$CE_MCP_COMMAND\" -- --config \"$CONFIG_PATH\""
+            exit 1
+        fi
     fi
 }
 
@@ -535,11 +537,8 @@ uninstall_mcp_server() {
             print_success "Removed $MCP_NAME from Claude project configuration"
         fi
 
-        # Try to remove from user/global scope (will silently fail if not present)
-        print_info "Checking for global MCP configuration..."
-        if claude mcp remove --scope user "$MCP_NAME" 2>/dev/null; then
-            print_success "Removed $MCP_NAME from Claude global configuration"
-        fi
+        # Note: Current Claude CLI doesn't support scope option
+        # Global removal would need to be done manually if needed
     fi
 
     # Remove from project directory
