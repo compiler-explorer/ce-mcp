@@ -2,11 +2,11 @@
 
 from ce_mcp.assembly_diff import (
     extract_function_assembly,
-    normalize_assembly,
-    generate_assembly_diff,
-    extract_instruction,
     extract_function_call,
+    extract_instruction,
+    generate_assembly_diff,
     generate_diff_summary,
+    normalize_assembly,
 )
 
 
@@ -59,10 +59,7 @@ helper_function:
     def test_extract_function_call(self):
         """Test function call extraction."""
         assert extract_function_call("call printf") == "printf"
-        assert (
-            extract_function_call("call std::vector<int>::size()")
-            == "std::vector<int>::size()"
-        )
+        assert extract_function_call("call std::vector<int>::size()") == "std::vector<int>::size()"
         assert extract_function_call("mov eax, 0") is None
         assert extract_function_call("jmp .L2") is None
 
@@ -169,9 +166,7 @@ sum_range_loop:
     ret
 """
 
-        diff_result = generate_assembly_diff(
-            index_loop_asm, range_loop_asm, "Index Loop", "Range Loop"
-        )
+        diff_result = generate_assembly_diff(index_loop_asm, range_loop_asm, "Index Loop", "Range Loop")
 
         stats = diff_result["statistics"]
 

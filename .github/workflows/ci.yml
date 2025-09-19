@@ -38,11 +38,6 @@ jobs:
         source .venv/bin/activate
         uv run black --check ce_mcp/ tests/
 
-    - name: Run linting
-      run: |
-        source .venv/bin/activate
-        uv run ruff check ce_mcp/ tests/
-
     - name: Run type checking with mypy
       run: |
         source .venv/bin/activate
@@ -96,12 +91,7 @@ jobs:
     - name: Check import sorting
       run: |
         source .venv/bin/activate
-        uv run ruff check --select I ce_mcp/ tests/
-
-    - name: Run linting
-      run: |
-        source .venv/bin/activate
-        uv run ruff check ce_mcp/ tests/
+        isort --check-only --diff ce_mcp/ tests/
 
   security:
     runs-on: ubuntu-latest

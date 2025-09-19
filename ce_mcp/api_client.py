@@ -70,8 +70,7 @@ class CompilerExplorerClient:
             import warnings
 
             warnings.warn(
-                "CompilerExplorerClient was not properly closed. "
-                "Please call await client.close() in your code.",
+                "CompilerExplorerClient was not properly closed. " "Please call await client.close() in your code.",
                 ResourceWarning,
                 stacklevel=2,
             )
@@ -115,16 +114,12 @@ class CompilerExplorerClient:
                         else self.config.filters.binary
                     ),
                     "binaryObject": (
-                        filter_overrides.get(
-                            "binaryObject", self.config.filters.binaryObject
-                        )
+                        filter_overrides.get("binaryObject", self.config.filters.binaryObject)
                         if filter_overrides
                         else self.config.filters.binaryObject
                     ),
                     "commentOnly": (
-                        filter_overrides.get(
-                            "commentOnly", self.config.filters.commentOnly
-                        )
+                        filter_overrides.get("commentOnly", self.config.filters.commentOnly)
                         if filter_overrides
                         else self.config.filters.commentOnly
                     ),
@@ -134,9 +129,7 @@ class CompilerExplorerClient:
                         else self.config.filters.demangle
                     ),
                     "directives": (
-                        filter_overrides.get(
-                            "directives", self.config.filters.directives
-                        )
+                        filter_overrides.get("directives", self.config.filters.directives)
                         if filter_overrides
                         else self.config.filters.directives
                     ),
@@ -152,9 +145,7 @@ class CompilerExplorerClient:
                         else self.config.filters.labels
                     ),
                     "libraryCode": (
-                        filter_overrides.get(
-                            "libraryCode", self.config.filters.libraryCode
-                        )
+                        filter_overrides.get("libraryCode", self.config.filters.libraryCode)
                         if filter_overrides
                         else self.config.filters.libraryCode
                     ),
@@ -164,9 +155,7 @@ class CompilerExplorerClient:
                         else self.config.filters.trim
                     ),
                     "debugCalls": (
-                        filter_overrides.get(
-                            "debugCalls", self.config.filters.debugCalls
-                        )
+                        filter_overrides.get("debugCalls", self.config.filters.debugCalls)
                         if filter_overrides
                         else self.config.filters.debugCalls
                     ),
@@ -296,9 +285,7 @@ class CompilerExplorerClient:
             logger.error(f"Failed to get languages: {e}")
             raise
 
-    async def get_compilers(
-        self, language: str, include_extended_info: bool = False
-    ) -> List[Dict[str, Any]]:
+    async def get_compilers(self, language: str, include_extended_info: bool = False) -> List[Dict[str, Any]]:
         """Get list of compilers for a language."""
         session = await self._get_session()
 
@@ -359,17 +346,12 @@ class CompilerExplorerClient:
             logger.error(f"Failed to get libraries: {e}")
             raise
 
-    async def get_libraries_list(
-        self, language: str, search_text: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    async def get_libraries_list(self, language: str, search_text: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get simplified list of libraries (id and name only) with optional search."""
         full_libraries = await self.get_libraries(language)
 
         # Filter to only include id and name
-        simplified_libraries = [
-            {"id": lib.get("id", ""), "name": lib.get("name", "")}
-            for lib in full_libraries
-        ]
+        simplified_libraries = [{"id": lib.get("id", ""), "name": lib.get("name", "")} for lib in full_libraries]
 
         # Apply search filter if provided
         if search_text:
@@ -377,17 +359,12 @@ class CompilerExplorerClient:
             simplified_libraries = [
                 lib
                 for lib in simplified_libraries
-                if (
-                    search_lower in lib["id"].lower()
-                    or search_lower in lib["name"].lower()
-                )
+                if (search_lower in lib["id"].lower() or search_lower in lib["name"].lower())
             ]
 
         return simplified_libraries
 
-    async def get_library_details(
-        self, language: str, library_id: str
-    ) -> Optional[Dict[str, Any]]:
+    async def get_library_details(self, language: str, library_id: str) -> Optional[Dict[str, Any]]:
         """Get detailed information for a specific library."""
         full_libraries = await self.get_libraries(language)
 

@@ -1,17 +1,17 @@
 """Tool implementations for Compiler Explorer MCP."""
 
-from typing import Any, Dict, List, Tuple, Optional, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
-from .config import Config
 from .api_client import CompilerExplorerClient
-from .utils import (
-    extract_compile_args_from_source,
-    apply_text_filter,
-    format_compiler_info,
-)
+from .config import Config
 from .experimental_utils import (
-    search_experimental_compilers,
     ExperimentalCompilerFinder,
+    search_experimental_compilers,
+)
+from .utils import (
+    apply_text_filter,
+    extract_compile_args_from_source,
+    format_compiler_info,
 )
 
 
@@ -27,9 +27,7 @@ def extract_compiler_suggestion(message: str) -> Optional[str]:
     import re
 
     # Pattern for "did you mean" suggestions
-    did_you_mean = re.search(
-        r"did you mean ['\"]([^'\"]+)['\"]", message, re.IGNORECASE
-    )
+    did_you_mean = re.search(r"did you mean ['\"]([^'\"]+)['\"]", message, re.IGNORECASE)
     if did_you_mean:
         return f"did you mean '{did_you_mean.group(1)}'?"
 
@@ -39,9 +37,7 @@ def extract_compiler_suggestion(message: str) -> Optional[str]:
         return f"use '{use_instead.group(1)}' instead"
 
     # Pattern for "suggested alternative" notes
-    suggested = re.search(
-        r"suggested alternative: ['\"]([^'\"]+)['\"]", message, re.IGNORECASE
-    )
+    suggested = re.search(r"suggested alternative: ['\"]([^'\"]+)['\"]", message, re.IGNORECASE)
     if suggested:
         return f"suggested alternative: '{suggested.group(1)}'"
 
@@ -108,9 +104,7 @@ def _collect_all_stderr(result: Dict[str, Any]) -> str:
                     if isinstance(step_stderr, list):
                         for item in step_stderr:
                             if isinstance(item, dict):
-                                stderr_parts.append(
-                                    f"Build step {i+1}: {item.get('text', '')}"
-                                )
+                                stderr_parts.append(f"Build step {i+1}: {item.get('text', '')}")
                             else:
                                 stderr_parts.append(f"Build step {i+1}: {str(item)}")
                     else:
@@ -158,17 +152,15 @@ async def compile_check(arguments: Dict[str, Any], config: Config) -> Dict[str, 
         resolved_libraries = []
         if libraries:
             from .library_utils import (
-                validate_and_resolve_libraries,
-                search_libraries,
-                format_library_error_with_suggestions,
                 LibraryError,
                 LibraryNotFoundError,
+                format_library_error_with_suggestions,
+                search_libraries,
+                validate_and_resolve_libraries,
             )
 
             try:
-                resolved_libraries = await validate_and_resolve_libraries(
-                    libraries, language, compiler, client
-                )
+                resolved_libraries = await validate_and_resolve_libraries(libraries, language, compiler, client)
             except LibraryError as e:
                 # Try to provide helpful suggestions for library errors
                 if isinstance(e, LibraryNotFoundError):
@@ -177,33 +169,21 @@ async def compile_check(arguments: Dict[str, Any], config: Config) -> Dict[str, 
                     if "'" in error_msg:
                         lib_name = error_msg.split("'")[1]
                         suggestions = await search_libraries(lib_name, language, client)
-                        enhanced_error = format_library_error_with_suggestions(
-                            e, lib_name, language, suggestions
-                        )
+                        enhanced_error = format_library_error_with_suggestions(e, lib_name, language, suggestions)
                         raise LibraryError(enhanced_error)
                 raise
 
-        result = await client.compile(
-            source, language, compiler, options, libraries=resolved_libraries
-        )
+        result = await client.compile(source, language, compiler, options, libraries=resolved_libraries)
     finally:
         await client.close()
 
     return {
         "success": result.get("code", 1) == 0,
         "exit_code": result.get("code", 1),
-        "error_count": len(
-            [d for d in result.get("diagnostics", []) if d.get("type") == "error"]
-        ),
-        "warning_count": len(
-            [d for d in result.get("diagnostics", []) if d.get("type") == "warning"]
-        ),
+        "error_count": len([d for d in result.get("diagnostics", []) if d.get("type") == "error"]),
+        "warning_count": len([d for d in result.get("diagnostics", []) if d.get("type") == "warning"]),
         "first_error": next(
-            (
-                d["message"]
-                for d in result.get("diagnostics", [])
-                if d.get("type") == "error"
-            ),
+            (d["message"] for d in result.get("diagnostics", []) if d.get("type") == "error"),
             None,
         ),
     }
@@ -228,17 +208,15 @@ async def compile_and_run(arguments: Dict[str, Any], config: Config) -> Dict[str
         resolved_libraries = []
         if libraries:
             from .library_utils import (
-                validate_and_resolve_libraries,
-                search_libraries,
-                format_library_error_with_suggestions,
                 LibraryError,
                 LibraryNotFoundError,
+                format_library_error_with_suggestions,
+                search_libraries,
+                validate_and_resolve_libraries,
             )
 
             try:
-                resolved_libraries = await validate_and_resolve_libraries(
-                    libraries, language, compiler, client
-                )
+                resolved_libraries = await validate_and_resolve_libraries(libraries, language, compiler, client)
             except LibraryError as e:
                 # Try to provide helpful suggestions for library errors
                 if isinstance(e, LibraryNotFoundError):
@@ -247,9 +225,7 @@ async def compile_and_run(arguments: Dict[str, Any], config: Config) -> Dict[str
                     if "'" in error_msg:
                         lib_name = error_msg.split("'")[1]
                         suggestions = await search_libraries(lib_name, language, client)
-                        enhanced_error = format_library_error_with_suggestions(
-                            e, lib_name, language, suggestions
-                        )
+                        enhanced_error = format_library_error_with_suggestions(e, lib_name, language, suggestions)
                         raise LibraryError(enhanced_error)
                 raise
 
@@ -289,17 +265,11 @@ async def compile_and_run(arguments: Dict[str, Any], config: Config) -> Dict[str
 
     # Convert arrays to strings for both stdout and stderr
     if isinstance(stdout, list):
-        stdout = "".join(
-            item.get("text", "") if isinstance(item, dict) else str(item)
-            for item in stdout
-        )
+        stdout = "".join(item.get("text", "") if isinstance(item, dict) else str(item) for item in stdout)
 
     # stderr is already processed by _collect_all_stderr for compilation failures
     if compiled and isinstance(stderr, list):
-        stderr = "".join(
-            item.get("text", "") if isinstance(item, dict) else str(item)
-            for item in stderr
-        )
+        stderr = "".join(item.get("text", "") if isinstance(item, dict) else str(item) for item in stderr)
 
     return {
         "compiled": compiled,
@@ -312,9 +282,7 @@ async def compile_and_run(arguments: Dict[str, Any], config: Config) -> Dict[str
     }
 
 
-async def compile_with_diagnostics(
-    arguments: Dict[str, Any], config: Config
-) -> Dict[str, Any]:
+async def compile_with_diagnostics(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
     """Get comprehensive compilation warnings and errors."""
     source = arguments["source"]
     language = arguments["language"]
@@ -336,17 +304,15 @@ async def compile_with_diagnostics(
         resolved_libraries = []
         if libraries:
             from .library_utils import (
-                validate_and_resolve_libraries,
-                search_libraries,
-                format_library_error_with_suggestions,
                 LibraryError,
                 LibraryNotFoundError,
+                format_library_error_with_suggestions,
+                search_libraries,
+                validate_and_resolve_libraries,
             )
 
             try:
-                resolved_libraries = await validate_and_resolve_libraries(
-                    libraries, language, compiler, client
-                )
+                resolved_libraries = await validate_and_resolve_libraries(libraries, language, compiler, client)
             except LibraryError as e:
                 # Try to provide helpful suggestions for library errors
                 if isinstance(e, LibraryNotFoundError):
@@ -355,9 +321,7 @@ async def compile_with_diagnostics(
                     if "'" in error_msg:
                         lib_name = error_msg.split("'")[1]
                         suggestions = await search_libraries(lib_name, language, client)
-                        enhanced_error = format_library_error_with_suggestions(
-                            e, lib_name, language, suggestions
-                        )
+                        enhanced_error = format_library_error_with_suggestions(e, lib_name, language, suggestions)
                         raise LibraryError(enhanced_error)
                 raise
 
@@ -448,9 +412,7 @@ async def compile_with_diagnostics(
     }
 
 
-async def analyze_optimization(
-    arguments: Dict[str, Any], config: Config
-) -> Dict[str, Any]:
+async def analyze_optimization(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
     """Check compiler optimizations and assembly analysis."""
     source = arguments["source"]
     language = arguments["language"]
@@ -475,17 +437,15 @@ async def analyze_optimization(
         resolved_libraries = []
         if libraries:
             from .library_utils import (
-                validate_and_resolve_libraries,
-                search_libraries,
-                format_library_error_with_suggestions,
                 LibraryError,
                 LibraryNotFoundError,
+                format_library_error_with_suggestions,
+                search_libraries,
+                validate_and_resolve_libraries,
             )
 
             try:
-                resolved_libraries = await validate_and_resolve_libraries(
-                    libraries, language, compiler, client
-                )
+                resolved_libraries = await validate_and_resolve_libraries(libraries, language, compiler, client)
             except LibraryError as e:
                 # Try to provide helpful suggestions for library errors
                 if isinstance(e, LibraryNotFoundError):
@@ -494,9 +454,7 @@ async def analyze_optimization(
                     if "'" in error_msg:
                         lib_name = error_msg.split("'")[1]
                         suggestions = await search_libraries(lib_name, language, client)
-                        enhanced_error = format_library_error_with_suggestions(
-                            e, lib_name, language, suggestions
-                        )
+                        enhanced_error = format_library_error_with_suggestions(e, lib_name, language, suggestions)
                         raise LibraryError(enhanced_error)
                 raise
 
@@ -516,10 +474,7 @@ async def analyze_optimization(
 
     # Handle assembly output which might be a list of objects or strings
     if isinstance(asm_output, list):
-        asm_text = "\n".join(
-            item.get("text", "") if isinstance(item, dict) else str(item)
-            for item in asm_output
-        )
+        asm_text = "\n".join(item.get("text", "") if isinstance(item, dict) else str(item) for item in asm_output)
     else:
         asm_text = asm_output
 
@@ -545,8 +500,7 @@ async def analyze_optimization(
         "instruction_count": len(instruction_lines),
         "assembly_output": instruction_lines,
         "truncated": truncated_asm,
-        "total_instructions": len(instruction_lines)
-        + (len(asm_lines) - max_asm_lines if truncated_asm else 0),
+        "total_instructions": len(instruction_lines) + (len(asm_lines) - max_asm_lines if truncated_asm else 0),
     }
 
 
@@ -571,13 +525,9 @@ def _analyze_execution_differences(
     comp1, comp2 = result1["compiled"], result2["compiled"]
     if comp1 != comp2:
         if comp1 and not comp2:
-            differences.append(
-                f"{result1['compiler']} compiled successfully, {result2['compiler']} failed"
-            )
+            differences.append(f"{result1['compiler']} compiled successfully, {result2['compiler']} failed")
         elif comp2 and not comp1:
-            differences.append(
-                f"{result2['compiler']} compiled successfully, {result1['compiler']} failed"
-            )
+            differences.append(f"{result2['compiler']} compiled successfully, {result1['compiler']} failed")
     else:
         if comp1 and comp2:
             differences.append("Both compilers compiled successfully")
@@ -596,9 +546,7 @@ def _analyze_execution_differences(
         # Compare exit codes
         exit1, exit2 = result1["exit_code"], result2["exit_code"]
         if exit1 != exit2:
-            differences.append(
-                f"Exit codes differ: {result1['compiler']}={exit1}, {result2['compiler']}={exit2}"
-            )
+            differences.append(f"Exit codes differ: {result1['compiler']}={exit1}, {result2['compiler']}={exit2}")
 
         # Compare stdout
         stdout1, stdout2 = result1["stdout"], result2["stdout"]
@@ -609,13 +557,9 @@ def _analyze_execution_differences(
             if len(stdout_lines1) != len(stdout_lines2):
                 diff_lines = len(stdout_lines2) - len(stdout_lines1)
                 if diff_lines > 0:
-                    differences.append(
-                        f"Stdout differs: {result2['compiler']} output has {diff_lines} more lines"
-                    )
+                    differences.append(f"Stdout differs: {result2['compiler']} output has {diff_lines} more lines")
                 else:
-                    differences.append(
-                        f"Stdout differs: {result1['compiler']} output has {abs(diff_lines)} more lines"
-                    )
+                    differences.append(f"Stdout differs: {result1['compiler']} output has {abs(diff_lines)} more lines")
             else:
                 differences.append("Stdout content differs")
 
@@ -639,13 +583,9 @@ def _analyze_execution_differences(
             if len(stderr_lines1) != len(stderr_lines2):
                 diff_lines = len(stderr_lines2) - len(stderr_lines1)
                 if diff_lines > 0:
-                    differences.append(
-                        f"Stderr differs: {result2['compiler']} output has {diff_lines} more lines"
-                    )
+                    differences.append(f"Stderr differs: {result2['compiler']} output has {diff_lines} more lines")
                 else:
-                    differences.append(
-                        f"Stderr differs: {result1['compiler']} output has {abs(diff_lines)} more lines"
-                    )
+                    differences.append(f"Stderr differs: {result1['compiler']} output has {abs(diff_lines)} more lines")
             else:
                 differences.append("Stderr content differs")
 
@@ -672,9 +612,7 @@ def _analyze_execution_differences(
     return differences, diff_details
 
 
-async def compare_compilers(
-    arguments: Dict[str, Any], config: Config
-) -> Dict[str, Any]:
+async def compare_compilers(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
     """Compare output across different compilers, optimization levels, and options.
 
     This MCP tool provides comprehensive comparison capabilities for analyzing how
@@ -766,19 +704,17 @@ async def compare_compilers(
         resolved_libraries = []
         if libraries:
             from .library_utils import (
-                validate_and_resolve_libraries,
-                search_libraries,
-                format_library_error_with_suggestions,
                 LibraryError,
                 LibraryNotFoundError,
+                format_library_error_with_suggestions,
+                search_libraries,
+                validate_and_resolve_libraries,
             )
 
             try:
                 # Use first compiler for library validation
                 first_compiler = config.resolve_compiler(compilers[0]["id"])
-                resolved_libraries = await validate_and_resolve_libraries(
-                    libraries, language, first_compiler, client
-                )
+                resolved_libraries = await validate_and_resolve_libraries(libraries, language, first_compiler, client)
             except LibraryError as e:
                 # Try to provide helpful suggestions for library errors
                 if isinstance(e, LibraryNotFoundError):
@@ -787,9 +723,7 @@ async def compare_compilers(
                     if "'" in error_msg:
                         lib_name = error_msg.split("'")[1]
                         suggestions = await search_libraries(lib_name, language, client)
-                        enhanced_error = format_library_error_with_suggestions(
-                            e, lib_name, language, suggestions
-                        )
+                        enhanced_error = format_library_error_with_suggestions(e, lib_name, language, suggestions)
                         raise LibraryError(enhanced_error)
                 raise
 
@@ -830,17 +764,11 @@ async def compare_compilers(
 
                 # Convert arrays to strings for both stdout and stderr
                 if isinstance(stdout, list):
-                    stdout = "".join(
-                        item.get("text", "") if isinstance(item, dict) else str(item)
-                        for item in stdout
-                    )
+                    stdout = "".join(item.get("text", "") if isinstance(item, dict) else str(item) for item in stdout)
 
                 # stderr is already processed by _collect_all_stderr for compilation failures
                 if compiled and isinstance(stderr, list):
-                    stderr = "".join(
-                        item.get("text", "") if isinstance(item, dict) else str(item)
-                        for item in stderr
-                    )
+                    stderr = "".join(item.get("text", "") if isinstance(item, dict) else str(item) for item in stderr)
 
                 results.append(
                     {
@@ -867,9 +795,7 @@ async def compare_compilers(
                 # Extract assembly text
                 asm = result.get("asm", "")
                 if isinstance(asm, list):
-                    asm = "\n".join(
-                        item.get("text", "") for item in asm if isinstance(item, dict)
-                    )
+                    asm = "\n".join(item.get("text", "") for item in asm if isinstance(item, dict))
 
                 results.append(
                     {
@@ -879,18 +805,12 @@ async def compare_compilers(
                         "assembly": asm,  # Store full assembly for diff
                         "assembly_size": len(asm.splitlines()),
                         "warnings": len(
-                            [
-                                d
-                                for d in result.get("stderr", [])
-                                if "warning" in d.get("text", "").lower()
-                            ]
+                            [d for d in result.get("stderr", []) if "warning" in d.get("text", "").lower()]
                         ),
                     }
                 )
             else:  # diagnostics
-                result = await client.compile(
-                    source, language, compiler_id, options, libraries=resolved_libraries
-                )
+                result = await client.compile(source, language, compiler_id, options, libraries=resolved_libraries)
                 results.append(
                     {
                         "compiler": compiler_id,
@@ -898,11 +818,7 @@ async def compare_compilers(
                         "execution_result": "",
                         "assembly_size": 0,
                         "warnings": len(
-                            [
-                                d
-                                for d in result.get("stderr", [])
-                                if "warning" in d.get("text", "").lower()
-                            ]
+                            [d for d in result.get("stderr", []) if "warning" in d.get("text", "").lower()]
                         ),
                     }
                 )
@@ -966,8 +882,7 @@ async def compare_compilers(
             "statistics": assembly_diff["statistics"],
             "summary": assembly_diff["summary"],
             # Include truncated unified diff
-            "unified_diff": "\n".join(assembly_diff["unified_diff"].splitlines()[:50])
-            + "\n... (truncated)",
+            "unified_diff": "\n".join(assembly_diff["unified_diff"].splitlines()[:50]) + "\n... (truncated)",
         }
 
     # Add execution diff details if available
@@ -977,9 +892,7 @@ async def compare_compilers(
     return response
 
 
-async def generate_share_url(
-    arguments: Dict[str, Any], config: Config
-) -> Dict[str, Any]:
+async def generate_share_url(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
     """Generate Compiler Explorer URLs for collaboration."""
     source = arguments["source"]
     language = arguments["language"]
@@ -995,17 +908,15 @@ async def generate_share_url(
         resolved_libraries = []
         if libraries:
             from .library_utils import (
-                validate_and_resolve_libraries,
-                search_libraries,
-                format_library_error_with_suggestions,
                 LibraryError,
                 LibraryNotFoundError,
+                format_library_error_with_suggestions,
+                search_libraries,
+                validate_and_resolve_libraries,
             )
 
             try:
-                resolved_libraries = await validate_and_resolve_libraries(
-                    libraries, language, compiler, client
-                )
+                resolved_libraries = await validate_and_resolve_libraries(libraries, language, compiler, client)
             except LibraryError as e:
                 # Try to provide helpful suggestions for library errors
                 if isinstance(e, LibraryNotFoundError):
@@ -1014,15 +925,11 @@ async def generate_share_url(
                     if "'" in error_msg:
                         lib_name = error_msg.split("'")[1]
                         suggestions = await search_libraries(lib_name, language, client)
-                        enhanced_error = format_library_error_with_suggestions(
-                            e, lib_name, language, suggestions
-                        )
+                        enhanced_error = format_library_error_with_suggestions(e, lib_name, language, suggestions)
                         raise LibraryError(enhanced_error)
                 raise
 
-        url = await client.create_short_link(
-            source, language, compiler, options, layout, resolved_libraries
-        )
+        url = await client.create_short_link(source, language, compiler, options, layout, resolved_libraries)
     finally:
         await client.close()
 
@@ -1076,13 +983,9 @@ async def find_compilers(arguments: Dict[str, Any], config: Config) -> Dict[str,
 
             for cat_name, cat_compilers in categorized.items():
                 # Apply text filter to category compilers
-                filtered_compilers = apply_text_filter(
-                    cat_compilers, search_text, exact_search
-                )
+                filtered_compilers = apply_text_filter(cat_compilers, search_text, exact_search)
 
-                if (
-                    filtered_compilers
-                ):  # Only include categories with matching compilers
+                if filtered_compilers:  # Only include categories with matching compilers
                     result["categories"][cat_name] = {
                         "count": len(filtered_compilers),
                         "compilers": [
@@ -1100,10 +1003,7 @@ async def find_compilers(arguments: Dict[str, Any], config: Config) -> Dict[str,
             # Update summary with final counts
             result["summary"].update(
                 {
-                    "total_experimental": sum(
-                        len(cat_data["compilers"])
-                        for cat_data in result["categories"].values()
-                    ),
+                    "total_experimental": sum(len(cat_data["compilers"]) for cat_data in result["categories"].values()),
                     "categories_found": len(result["categories"]),
                     "filter_used": search_text,
                 }
@@ -1111,9 +1011,7 @@ async def find_compilers(arguments: Dict[str, Any], config: Config) -> Dict[str,
 
         else:
             # Apply text filter to experimental compilers
-            filtered_experimental = apply_text_filter(
-                experimental_compilers, search_text, exact_search
-            )
+            filtered_experimental = apply_text_filter(experimental_compilers, search_text, exact_search)
 
             # Return filtered results
             result = {
@@ -1155,11 +1053,7 @@ async def find_compilers(arguments: Dict[str, Any], config: Config) -> Dict[str,
             # Get example compilers from the results
             example_compilers = []
             if "compilers" in result:
-                example_compilers = [
-                    comp["id"]
-                    for comp in result["compilers"][:3]
-                    if isinstance(comp, dict)
-                ]
+                example_compilers = [comp["id"] for comp in result["compilers"][:3] if isinstance(comp, dict)]
             elif "categories" in result:
                 for cat_data in result["categories"].values():
                     for comp in cat_data["compilers"][:3]:
@@ -1182,9 +1076,7 @@ async def find_compilers(arguments: Dict[str, Any], config: Config) -> Dict[str,
         await client.close()
 
 
-async def get_libraries_list(
-    arguments: Dict[str, Any], config: Config
-) -> Dict[str, Any]:
+async def get_libraries_list(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
     """Get simplified list of libraries (id and name only) with optional search."""
     language = arguments.get("language", "c++")
     search_text = arguments.get("search_text")
@@ -1212,9 +1104,7 @@ async def get_libraries_list(
         await client.close()
 
 
-async def get_library_details_info(
-    arguments: Dict[str, Any], config: Config
-) -> Dict[str, Any]:
+async def get_library_details_info(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
     """Get detailed information for a specific library."""
     language = arguments.get("language", "c++")
     library_id = arguments.get("library_id")

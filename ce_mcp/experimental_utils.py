@@ -1,8 +1,8 @@
 """Utility functions for finding and categorizing experimental compilers."""
 
 import re
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -43,9 +43,7 @@ class ExperimentalCompilerFinder:
             "metaprogramming": ["metaprog", "autonsdmi"],
         }
 
-    def categorize_compilers(
-        self, compilers: List[Dict[str, Any]]
-    ) -> Dict[str, List[ExperimentalCompiler]]:
+    def categorize_compilers(self, compilers: List[Dict[str, Any]]) -> Dict[str, List[ExperimentalCompiler]]:
         """
         Categorize compilers by experimental features and proposals.
 
@@ -83,9 +81,7 @@ class ExperimentalCompilerFinder:
             proposal_numbers = self._extract_proposal_numbers(name + " " + comp_id)
 
             # Determine primary category and features
-            category, features = self._determine_category_and_features(
-                name_lower, id_lower
-            )
+            category, features = self._determine_category_and_features(name_lower, id_lower)
 
             # If compiler has proposal numbers, prioritize "proposals" as the category
             if proposal_numbers:
@@ -100,9 +96,7 @@ class ExperimentalCompilerFinder:
                 proposal_numbers=proposal_numbers,
                 features=features,
                 is_nightly=is_nightly,
-                description=self._generate_description(
-                    name, proposal_numbers, features
-                ),
+                description=self._generate_description(name, proposal_numbers, features),
                 modified=None,  # Will be populated later if nightly
                 possible_overrides=compiler.get("possibleOverrides"),
                 possible_runtime_tools=compiler.get("possibleRuntimeTools"),
@@ -125,9 +119,7 @@ class ExperimentalCompilerFinder:
         # Remove empty categories
         return {k: v for k, v in categories.items() if v}
 
-    def find_by_proposal(
-        self, compilers: List[Dict[str, Any]], proposal_number: str
-    ) -> List[ExperimentalCompiler]:
+    def find_by_proposal(self, compilers: List[Dict[str, Any]], proposal_number: str) -> List[ExperimentalCompiler]:
         """
         Find compilers supporting a specific proposal.
 
@@ -170,9 +162,7 @@ class ExperimentalCompilerFinder:
                         proposal_numbers=proposal_numbers,
                         features=features,
                         is_nightly=compiler.get("isNightly", False),
-                        description=self._generate_description(
-                            name, proposal_numbers, features
-                        ),
+                        description=self._generate_description(name, proposal_numbers, features),
                         modified=None,  # Will be populated later if nightly
                         possible_overrides=compiler.get("possibleOverrides"),
                         possible_runtime_tools=compiler.get("possibleRuntimeTools"),
@@ -182,9 +172,7 @@ class ExperimentalCompilerFinder:
 
         return matching_compilers
 
-    def find_by_feature(
-        self, compilers: List[Dict[str, Any]], feature: str
-    ) -> List[ExperimentalCompiler]:
+    def find_by_feature(self, compilers: List[Dict[str, Any]], feature: str) -> List[ExperimentalCompiler]:
         """
         Find compilers supporting a specific experimental feature.
 
@@ -202,10 +190,7 @@ class ExperimentalCompilerFinder:
             name_lower = compiler.get("name", "").lower()
 
             # Check if this compiler supports the requested feature
-            if any(
-                keyword in name_lower
-                for keyword in self.feature_keywords.get(feature_lower, [feature_lower])
-            ):
+            if any(keyword in name_lower for keyword in self.feature_keywords.get(feature_lower, [feature_lower])):
                 proposal_numbers = self._extract_proposal_numbers(
                     compiler.get("name", "") + " " + compiler.get("id", "")
                 )
@@ -219,9 +204,7 @@ class ExperimentalCompilerFinder:
                         proposal_numbers=proposal_numbers,
                         features=features,
                         is_nightly=compiler.get("isNightly", False),
-                        description=self._generate_description(
-                            compiler.get("name", ""), proposal_numbers, features
-                        ),
+                        description=self._generate_description(compiler.get("name", ""), proposal_numbers, features),
                         modified=None,  # Will be populated later if nightly
                         possible_overrides=compiler.get("possibleOverrides"),
                         possible_runtime_tools=compiler.get("possibleRuntimeTools"),
@@ -231,9 +214,7 @@ class ExperimentalCompilerFinder:
 
         return matching_compilers
 
-    def get_all_experimental_compilers(
-        self, compilers: List[Dict[str, Any]]
-    ) -> List[ExperimentalCompiler]:
+    def get_all_experimental_compilers(self, compilers: List[Dict[str, Any]]) -> List[ExperimentalCompiler]:
         """Get all experimental compilers with full details."""
         experimental = []
 
@@ -244,9 +225,7 @@ class ExperimentalCompilerFinder:
                 name_lower = name.lower()
 
                 proposal_numbers = self._extract_proposal_numbers(name + " " + comp_id)
-                category, features = self._determine_category_and_features(
-                    name_lower, comp_id.lower()
-                )
+                category, features = self._determine_category_and_features(name_lower, comp_id.lower())
 
                 # If compiler has proposal numbers, prioritize "proposals" as the category
                 if proposal_numbers:
@@ -262,9 +241,7 @@ class ExperimentalCompilerFinder:
                         proposal_numbers=proposal_numbers,
                         features=features,
                         is_nightly=compiler.get("isNightly", False),
-                        description=self._generate_description(
-                            name, proposal_numbers, features
-                        ),
+                        description=self._generate_description(name, proposal_numbers, features),
                         modified=None,  # Will be populated later if nightly
                         possible_overrides=compiler.get("possibleOverrides"),
                         possible_runtime_tools=compiler.get("possibleRuntimeTools"),
@@ -284,11 +261,7 @@ class ExperimentalCompilerFinder:
             "experimental",
             "trunk" and is_nightly,
             self.proposal_pattern.search(name + " " + comp_id),
-            any(
-                keyword in name
-                for keywords in self.feature_keywords.values()
-                for keyword in keywords
-            ),
+            any(keyword in name for keywords in self.feature_keywords.values() for keyword in keywords),
         ]
 
         return any(experimental_indicators)
@@ -311,9 +284,7 @@ class ExperimentalCompilerFinder:
                 features.append(feature)
         return features
 
-    def _determine_category_and_features(
-        self, name_lower: str, id_lower: str
-    ) -> tuple[str, List[str]]:
+    def _determine_category_and_features(self, name_lower: str, id_lower: str) -> tuple[str, List[str]]:
         """Determine primary category and extract features."""
         features = self._extract_features(name_lower)
 
@@ -337,9 +308,7 @@ class ExperimentalCompilerFinder:
         else:
             return "other_experimental", features
 
-    def _generate_description(
-        self, name: str, proposal_numbers: List[str], features: List[str]
-    ) -> str:
+    def _generate_description(self, name: str, proposal_numbers: List[str], features: List[str]) -> str:
         """Generate a user-friendly description."""
         desc_parts = [name]
 
@@ -406,9 +375,7 @@ def parse_version_info(raw_version_info: Dict[str, Any]) -> Dict[str, Any]:
     return parsed
 
 
-async def fetch_version_info_for_compilers(
-    compilers: List[ExperimentalCompiler], client: Any
-) -> None:
+async def fetch_version_info_for_compilers(compilers: List[ExperimentalCompiler], client: Any) -> None:
     """
     Fetch version information for nightly compilers.
 
@@ -455,9 +422,7 @@ async def search_experimental_compilers(
         experimental_compilers = finder.find_by_feature(compilers, feature)
     elif category:
         all_experimental = finder.get_all_experimental_compilers(compilers)
-        experimental_compilers = [
-            comp for comp in all_experimental if comp.category == category
-        ]
+        experimental_compilers = [comp for comp in all_experimental if comp.category == category]
     else:
         experimental_compilers = finder.get_all_experimental_compilers(compilers)
 

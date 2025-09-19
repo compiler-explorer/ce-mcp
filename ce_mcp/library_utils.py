@@ -1,6 +1,7 @@
 """Utility functions for library management and resolution."""
 
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 from packaging import version
 
 
@@ -28,9 +29,7 @@ class CompilerLibraryError(LibraryError):
     pass
 
 
-def resolve_library_version(
-    library_versions: List[Dict[str, Any]], requested_version: str
-) -> str | None:
+def resolve_library_version(library_versions: List[Dict[str, Any]], requested_version: str) -> str | None:
     """
     Resolve version request to specific version ID.
 
@@ -89,9 +88,7 @@ def get_latest_version_id(library_versions: List[Dict[str, Any]]) -> str:
         version_id = ver.get("id", "").lower()
 
         # Skip if version contains development keywords
-        is_dev_version = any(
-            keyword in version_str or keyword in version_id for keyword in dev_keywords
-        )
+        is_dev_version = any(keyword in version_str or keyword in version_id for keyword in dev_keywords)
 
         if not is_dev_version:
             stable_versions.append(ver)
@@ -102,9 +99,7 @@ def get_latest_version_id(library_versions: List[Dict[str, Any]]) -> str:
 
     # Sort by $order field if available (CE uses this for ordering)
     if all("$order" in ver for ver in versions_to_use):
-        sorted_versions = sorted(
-            versions_to_use, key=lambda x: x["$order"], reverse=True
-        )
+        sorted_versions = sorted(versions_to_use, key=lambda x: x["$order"], reverse=True)
         return str(sorted_versions[0]["id"])  # Higher $order = newer
 
     # Fallback: try to parse semantic versions
@@ -154,9 +149,7 @@ def validate_library_requests(
         # Check if library exists
         if lib_id not in lib_lookup:
             available_ids = list(lib_lookup.keys())
-            raise ValueError(
-                f"Library '{lib_id}' not found. Available libraries: {available_ids[:10]}..."
-            )
+            raise ValueError(f"Library '{lib_id}' not found. Available libraries: {available_ids[:10]}...")
 
         library = lib_lookup[lib_id]
 
@@ -230,9 +223,7 @@ def group_compilers_by_buildenv(
     return groups
 
 
-def get_compiler_library_support(
-    compiler: Dict[str, Any], all_libraries: List[Dict[str, Any]]
-) -> Dict[str, Any]:
+def get_compiler_library_support(compiler: Dict[str, Any], all_libraries: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Determine library support for a compiler based on libsArr field.
 
@@ -269,9 +260,7 @@ def get_compiler_library_support(
         }
 
 
-def filter_compilers_by_library_support(
-    compilers: List[Dict[str, Any]], required_library: str
-) -> List[Dict[str, Any]]:
+def filter_compilers_by_library_support(compilers: List[Dict[str, Any]], required_library: str) -> List[Dict[str, Any]]:
     """
     Filter compilers that support a specific library.
 
@@ -294,9 +283,7 @@ def filter_compilers_by_library_support(
     return supporting_compilers
 
 
-def filter_libraries_by_search(
-    libraries: List[Dict[str, Any]], search_term: str
-) -> List[Dict[str, Any]]:
+def filter_libraries_by_search(libraries: List[Dict[str, Any]], search_term: str) -> List[Dict[str, Any]]:
     """
     Filter libraries by search term in name or ID with fuzzy matching.
 
@@ -417,20 +404,14 @@ async def resolve_libraries_for_compilation(
         compilers = await client.get_compilers(language, include_extended_info=False)
         compiler_info = next((c for c in compilers if c["id"] == compiler_id), None)
         if not compiler_info:
-            raise CompilerLibraryError(
-                f"Compiler '{compiler_id}' not found for {language}"
-            )
+            raise CompilerLibraryError(f"Compiler '{compiler_id}' not found for {language}")
     except Exception as e:
         raise LibraryError(f"Failed to fetch compiler info: {e}")
 
     # Check compiler library support
-    unsupported = check_compiler_library_compatibility(
-        compiler_info, [lib["id"] for lib in libraries], all_libraries
-    )
+    unsupported = check_compiler_library_compatibility(compiler_info, [lib["id"] for lib in libraries], all_libraries)
     if unsupported:
-        raise CompilerLibraryError(
-            f"Compiler '{compiler_id}' does not support libraries: {', '.join(unsupported)}"
-        )
+        raise CompilerLibraryError(f"Compiler '{compiler_id}' does not support libraries: {', '.join(unsupported)}")
 
     # Validate and resolve each library
     resolved_libraries = []
@@ -451,9 +432,7 @@ async def resolve_libraries_for_compilation(
         if requested_version == "latest":
             version_id = get_latest_version_id(library["versions"])
         else:
-            resolved_version = resolve_library_version(
-                library["versions"], requested_version
-            )
+            resolved_version = resolve_library_version(library["versions"], requested_version)
             if resolved_version is None:
                 available_versions = [v["version"] for v in library["versions"]]
                 raise LibraryVersionError(
@@ -476,9 +455,7 @@ async def resolve_libraries_for_compilation(
     return resolved_libraries
 
 
-async def search_libraries(
-    search_term: str, language: str, client: Any, limit: int = 10
-) -> List[Dict[str, Any]]:
+async def search_libraries(search_term: str, language: str, client: Any, limit: int = 10) -> List[Dict[str, Any]]:
     """
     Search libraries by name/ID and return suggestions.
 
@@ -561,9 +538,7 @@ async def validate_and_resolve_libraries(
     if not libraries:
         return []
 
-    return await resolve_libraries_for_compilation(
-        libraries, language, compiler_id, client
-    )
+    return await resolve_libraries_for_compilation(libraries, language, compiler_id, client)
 
 
 def format_library_error_with_suggestions(

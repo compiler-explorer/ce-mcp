@@ -10,10 +10,10 @@ from aiohttp import ClientError
 from ce_mcp.api_client import CompilerExplorerClient
 from ce_mcp.config import Config
 from ce_mcp.tools import (
-    compile_check,
-    compile_and_run,
-    compile_with_diagnostics,
     analyze_optimization,
+    compile_and_run,
+    compile_check,
+    compile_with_diagnostics,
     generate_share_url,
 )
 
@@ -158,9 +158,7 @@ int main() {
 }"""
 
         try:
-            result = await client.compile(
-                source=bad_cpp, language="c++", compiler="g132", options="-std=c++17"
-            )
+            result = await client.compile(source=bad_cpp, language="c++", compiler="g132", options="-std=c++17")
 
             # Should fail to compile
             assert result.get("code", 0) != 0
@@ -178,14 +176,10 @@ int main() {
 }"""
 
         try:
-            url = await client.create_short_link(
-                source=simple_cpp, language="c++", compiler="g132", options="-O2"
-            )
+            url = await client.create_short_link(source=simple_cpp, language="c++", compiler="g132", options="-O2")
 
             assert isinstance(url, str)
-            assert url.startswith("https://godbolt.org/") or url.startswith(
-                "https://gcc.godbolt.org/"
-            )
+            assert url.startswith("https://godbolt.org/") or url.startswith("https://gcc.godbolt.org/")
 
         except ClientError as e:
             pytest.skip(f"API not accessible: {e}")
@@ -319,9 +313,7 @@ int main() {
             if result["diagnostics"]:
                 assert len(result["diagnostics"]) > 0
                 # Should contain error about undefined function
-                assert any(
-                    "undefined" in str(diag).lower() for diag in result["diagnostics"]
-                )
+                assert any("undefined" in str(diag).lower() for diag in result["diagnostics"])
 
         except ClientError as e:
             pytest.skip(f"API not accessible: {e}")

@@ -1,8 +1,8 @@
 """Tests for architecture-independent assembly diff functionality."""
 
 from ce_mcp.assembly_diff import (
-    extract_instruction,
     extract_function_call,
+    extract_instruction,
     generate_assembly_diff,
 )
 
@@ -54,10 +54,7 @@ class TestArchitectureIndependence:
         """Test function call extraction for different architectures."""
         # x86/x64
         assert extract_function_call("call printf") == "printf"
-        assert (
-            extract_function_call("call std::cout::operator<<")
-            == "std::cout::operator<<"
-        )
+        assert extract_function_call("call std::cout::operator<<") == "std::cout::operator<<"
         assert extract_function_call("call QWORD PTR [rax]") == "indirect_call"
 
         # ARM
@@ -77,9 +74,7 @@ class TestArchitectureIndependence:
         assert extract_instruction(".section .text") is None  # Directive
         assert extract_instruction("# Comment") is None  # Comment
         assert extract_instruction("") is None  # Empty line
-        assert (
-            extract_instruction("verylonginstructionname x, y, z") is None
-        )  # Too long
+        assert extract_instruction("verylonginstructionname x, y, z") is None  # Too long
 
     def test_arm_vs_x86_diff(self):
         """Test comparing ARM and x86 assembly (different compilers)."""
@@ -108,9 +103,7 @@ add_numbers:
         assert "pop" in stats["unique_instructions_removed"]
         assert "ret" in stats["unique_instructions_removed"]
 
-        assert (
-            "add" in stats["unique_instructions_added"]
-        )  # ARM add is different format
+        assert "add" in stats["unique_instructions_added"]  # ARM add is different format
         assert "bx" in stats["unique_instructions_added"]
 
         # Check summary shows the significant size difference

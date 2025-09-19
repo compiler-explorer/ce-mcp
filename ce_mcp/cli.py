@@ -5,8 +5,8 @@ from pathlib import Path
 
 import click
 
-from .server import create_server
 from .config import Config
+from .server import create_server
 
 
 @click.command()

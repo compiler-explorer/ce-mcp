@@ -1,7 +1,7 @@
 """Utility functions for Compiler Explorer MCP."""
 
 import re
-from typing import Optional, List, Dict, Any, Union
+from typing import Any, Dict, List, Optional, Union
 
 
 def extract_compile_args_from_source(source_code: str, language: str) -> Optional[str]:
@@ -44,9 +44,7 @@ class Colors:
     NC = "\033[0m"  # No Color
 
 
-def truncate_output(
-    text: str, max_lines: int, max_line_length: int = 200
-) -> tuple[str, bool]:
+def truncate_output(text: str, max_lines: int, max_line_length: int = 200) -> tuple[str, bool]:
     """
     Truncate output to specified limits.
 
@@ -95,9 +93,7 @@ def format_diagnostics(diagnostics: list) -> str:
         else:
             color = Colors.BLUE
 
-        formatted.append(
-            f"{color}{diag_type.upper()}{Colors.NC} at {line}:{column}: {message}"
-        )
+        formatted.append(f"{color}{diag_type.upper()}{Colors.NC} at {line}:{column}: {message}")
 
     return "\n".join(formatted)
 
@@ -131,9 +127,7 @@ def parse_execution_result(exec_result: dict) -> dict:
     }
 
 
-def apply_text_filter(
-    compilers_list: List[Any], search_text: Optional[str], exact_search: bool = False
-) -> List[Any]:
+def apply_text_filter(compilers_list: List[Any], search_text: Optional[str], exact_search: bool = False) -> List[Any]:
     """Filter compilers by search text in names and IDs."""
     if not search_text:
         return compilers_list
@@ -144,11 +138,7 @@ def apply_text_filter(
     else:
         # Partial match on names and IDs (case-insensitive)
         search_lower = search_text.lower()
-        return [
-            comp
-            for comp in compilers_list
-            if search_lower in comp.id.lower() or search_lower in comp.name.lower()
-        ]
+        return [comp for comp in compilers_list if search_lower in comp.id.lower() or search_lower in comp.name.lower()]
 
 
 def format_compiler_info(

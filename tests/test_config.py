@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from ce_mcp.config import Config, APIConfig, FiltersConfig
+from ce_mcp.config import APIConfig, Config, FiltersConfig
 
 
 class TestConfig:

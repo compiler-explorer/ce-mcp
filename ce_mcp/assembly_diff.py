@@ -2,7 +2,7 @@
 
 import difflib
 import re
-from typing import List, Dict, Any, Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def extract_function_assembly(asm_text: str, function_name: str) -> Optional[str]:
@@ -73,11 +73,7 @@ def generate_assembly_diff(
     lines2 = normalize_assembly(asm2)
 
     # Generate unified diff
-    diff_lines = list(
-        difflib.unified_diff(
-            lines1, lines2, fromfile=label1, tofile=label2, lineterm="", n=context
-        )
-    )
+    diff_lines = list(difflib.unified_diff(lines1, lines2, fromfile=label1, tofile=label2, lineterm="", n=context))
 
     # Analyze the diff
     stats = analyze_diff(diff_lines)
@@ -231,9 +227,7 @@ def extract_function_call(line: str) -> Optional[str]:
     return None
 
 
-def generate_side_by_side(
-    lines1: List[str], lines2: List[str], max_width: int = 50
-) -> List[Tuple[str, str]]:
+def generate_side_by_side(lines1: List[str], lines2: List[str], max_width: int = 50) -> List[Tuple[str, str]]:
     """Generate side-by-side comparison of key differences."""
     # Use sequence matcher to find differences
     matcher = difflib.SequenceMatcher(None, lines1, lines2)
@@ -261,9 +255,7 @@ def generate_side_by_side(
     return side_by_side
 
 
-def generate_diff_summary(
-    stats: Dict[str, Any], lines1: List[str], lines2: List[str]
-) -> str:
+def generate_diff_summary(stats: Dict[str, Any], lines1: List[str], lines2: List[str]) -> str:
     """Generate a human-readable summary of the differences."""
     summary_parts = []
 

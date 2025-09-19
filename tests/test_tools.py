@@ -1,18 +1,19 @@
 """Tests for MCP tools."""
 
-import pytest
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
+from ce_mcp.config import Config
 from ce_mcp.tools import (
-    compile_check,
-    compile_and_run,
-    compile_with_diagnostics,
     analyze_optimization,
     compare_compilers,
-    generate_share_url,
+    compile_and_run,
+    compile_check,
+    compile_with_diagnostics,
     extract_compiler_suggestion,
+    generate_share_url,
 )
-from ce_mcp.config import Config
 
 
 class TestTools:
@@ -27,17 +28,11 @@ class TestTools:
         """Test compiler suggestion extraction patterns."""
         # Test "did you mean" pattern
         assert (
-            extract_compiler_suggestion(
-                "error: 'foo' was not declared; did you mean 'bar'?"
-            )
-            == "did you mean 'bar'?"
+            extract_compiler_suggestion("error: 'foo' was not declared; did you mean 'bar'?") == "did you mean 'bar'?"
         )
 
         # Test "use instead" pattern
-        assert (
-            extract_compiler_suggestion("warning: use 'const' instead of 'volatile'")
-            == "use 'const' instead"
-        )
+        assert extract_compiler_suggestion("warning: use 'const' instead of 'volatile'") == "use 'const' instead"
 
         # Test "suggested alternative" pattern
         assert (
@@ -46,10 +41,7 @@ class TestTools:
         )
 
         # Test fix-it pattern
-        assert (
-            extract_compiler_suggestion("note: fix-it applied: 'auto'")
-            == "fix-it: 'auto'"
-        )
+        assert extract_compiler_suggestion("note: fix-it applied: 'auto'") == "fix-it: 'auto'"
 
         # Test no suggestion
         assert extract_compiler_suggestion("error: syntax error") is None
@@ -400,8 +392,9 @@ int main() { return 0; }"""
     @pytest.mark.asyncio
     async def test_find_compilers_with_tools_parameters(self, config, mock_client):
         """Test find compilers parameters are passed correctly."""
-        from ce_mcp.tools import find_compilers
         from unittest.mock import patch
+
+        from ce_mcp.tools import find_compilers
 
         # Mock the search function to return a simple result
         with patch("ce_mcp.tools.search_experimental_compilers") as mock_search:
@@ -479,7 +472,6 @@ int main() { return 0; }"""
 
         # Get the format function from the find_compilers function scope
         # This is a bit tricky since it's a nested function, so we'll test it indirectly
-
         # Test ids_only mode
         assert compiler.id == "test_gcc"
 
@@ -518,9 +510,7 @@ int main() { return 0; }"""
         assert result["libraries"][0]["name"] == "Boost C++ Libraries"
 
         # Test with search
-        mock_client.get_libraries_list.return_value = [
-            {"id": "boost", "name": "Boost C++ Libraries"}
-        ]
+        mock_client.get_libraries_list.return_value = [{"id": "boost", "name": "Boost C++ Libraries"}]
 
         result = await get_libraries_list(
             {"language": "c++", "search_text": "boost"},
@@ -617,9 +607,7 @@ int main() { return 0; }"""
                 "name": "fmt",
                 "url": "https://github.com/fmtlib/fmt",
                 "description": "Formatting library",
-                "versions": [
-                    {"id": "90", "version": "9.0.0", "staticliblink": ["fmt"]}
-                ],
+                "versions": [{"id": "90", "version": "9.0.0", "staticliblink": ["fmt"]}],
             },
         ]
 

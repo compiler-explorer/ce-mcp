@@ -2,8 +2,8 @@
 
 import pytest
 
-from ce_mcp.server import create_server, mcp
 from ce_mcp.config import Config
+from ce_mcp.server import create_server, mcp
 
 
 class TestCompilerExplorerMCP:
@@ -44,11 +44,11 @@ class TestCompilerExplorerMCP:
     def test_tool_functions_exist(self):
         """Test tool functions are properly defined."""
         from ce_mcp.server import (
-            compile_check_tool,
-            compile_and_run_tool,
-            compile_with_diagnostics_tool,
             analyze_optimization_tool,
             compare_compilers_tool,
+            compile_and_run_tool,
+            compile_check_tool,
+            compile_with_diagnostics_tool,
             generate_share_url_tool,
         )
 
