@@ -579,6 +579,46 @@ int main() { return 0; }"""
         assert "required" in result["error"]
 
     @pytest.mark.asyncio
+    async def test_get_languages_list(self, config, mock_client):
+        """Test get languages list functionality."""
+        from ce_mcp.tools import get_languages_list
+
+        # Mock API response
+        mock_client.get_languages_list.return_value = [
+            {"id": "c++", "name": "C++", "extensions": [".cpp", ".cxx", ".h"]},
+            {"id": "c", "name": "C", "extensions": [".c", ".h"]},
+            {"id": "rust", "name": "Rust", "extensions": [".rs"]},
+            {"id": "javascript", "name": "JavaScript", "extensions": [".js"]},
+        ]
+
+        # Test without search
+        result = await get_languages_list(
+            {},
+            config,
+        )
+
+        assert result["search_text"] is None
+        assert result["count"] == 4
+        assert len(result["languages"]) == 4
+        assert result["languages"][0]["id"] == "c++"
+        assert result["languages"][0]["name"] == "C++"
+        assert result["languages"][0]["extensions"] == [".cpp", ".cxx", ".h"]
+
+        # Test with search
+        mock_client.get_languages_list.return_value = [
+            {"id": "javascript", "name": "JavaScript", "extensions": [".js"]},
+        ]
+
+        result = await get_languages_list(
+            {"search_text": "script"},
+            config,
+        )
+
+        assert result["search_text"] == "script"
+        assert result["count"] == 1
+        assert result["languages"][0]["id"] == "javascript"
+
+    @pytest.mark.asyncio
     async def test_api_client_libraries_methods(self, config):
         """Test API client library methods."""
         from ce_mcp.api_client import CompilerExplorerClient

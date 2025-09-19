@@ -1,6 +1,6 @@
 # Available Tools
 
-The Compiler Explorer MCP server provides 9 specialized tools for code compilation, analysis, and sharing. Each tool is optimized for specific use cases and provides token-efficient responses.
+The Compiler Explorer MCP server provides 11 specialized tools for code compilation, analysis, and sharing. Each tool is optimized for specific use cases and provides token-efficient responses.
 
 ## Core Compilation Tools
 
@@ -133,6 +133,33 @@ Provides comprehensive details for a specific library including all available ve
 - `library_id` - Specific library ID to get details for
 
 **Returns**: Complete library information including versions, description, URL
+
+### get_languages_tool
+**Purpose**: List supported programming languages with essential metadata
+**Best for**: Language discovery, token-efficient language browsing, AI workflow optimization
+
+Returns a simplified list of supported programming languages with only essential fields (id, name, extensions) and optional search filtering.
+
+**Key Parameters**:
+- `search_text` - Filter languages by name/ID (optional)
+
+**Returns**: List of languages with id, name, and extensions fields only
+
+## Additional Tools
+
+### download_shortlink_tool
+**Purpose**: Download and save source code from Compiler Explorer shortlinks
+**Best for**: Code extraction, project integration, archiving shared examples
+
+Extracts source code from Compiler Explorer shared links and saves to local files, preserving filenames and metadata.
+
+**Key Parameters**:
+- `shortlink_url` - CE shortlink URL or ID
+- `destination_path` - Directory to save files
+- `preserve_filenames` - Use original filenames when available (default: true)
+- `include_metadata` - Save compilation settings as JSON (default: true)
+
+**Returns**: List of saved files with metadata and summary
 
 ## Smart Features
 

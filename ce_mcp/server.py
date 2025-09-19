@@ -15,6 +15,7 @@ from .tools import (
     download_shortlink,
     find_compilers,
     generate_share_url,
+    get_languages_list,
     get_libraries_list,
     get_library_details_info,
 )
@@ -763,6 +764,30 @@ async def get_library_details_tool(
         {
             "language": language,
             "library_id": library_id,
+        },
+        config,
+    )
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+async def get_languages_tool(
+    search_text: str | None = None,
+) -> str:
+    """Get simplified list of languages (id, name and extensions only) with optional search.
+
+    Args:
+        search_text: Filter languages by text search in names and IDs (optional)
+
+    Examples:
+        - Get all languages: (no arguments)
+        - Search for C languages: search_text="c"
+        - Search for JavaScript/TypeScript: search_text="script"
+        - Search for Python: search_text="python"
+    """
+    result = await get_languages_list(
+        {
+            "search_text": search_text,
         },
         config,
     )

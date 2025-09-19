@@ -1531,3 +1531,25 @@ async def download_shortlink(arguments: Dict[str, Any], config: Config) -> Dict[
 
     finally:
         await client.close()
+
+
+async def get_languages_list(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
+    """Get simplified list of languages (id, name and extensions only) with optional search."""
+    search_text = arguments.get("search_text")
+
+    client = CompilerExplorerClient(config)
+
+    try:
+        languages = await client.get_languages_list(search_text)
+
+        return {
+            "search_text": search_text,
+            "count": len(languages),
+            "languages": languages,
+        }
+
+    except Exception as e:
+        return {"error": f"Failed to get languages: {str(e)}"}
+
+    finally:
+        await client.close()

@@ -98,6 +98,39 @@ class TestCompilerExplorerClient:
         assert languages[0]["id"] == "c++"
 
     @pytest.mark.asyncio
+    async def test_get_languages_list(self, client, mock_api):
+        """Test fetching simplified languages list."""
+        # Mock the API response for both calls (it will be called twice)
+        mock_languages = [
+            {"id": "c++", "name": "C++", "extensions": [".cpp", ".cxx", ".h"]},
+            {"id": "c", "name": "C", "extensions": [".c", ".h"]},
+            {"id": "rust", "name": "Rust", "extensions": [".rs"]},
+            {"id": "javascript", "name": "JavaScript", "extensions": [".js"]},
+        ]
+
+        # Mock for first call
+        mock_api.get(
+            "https://godbolt.org/api/languages",
+            payload=mock_languages,
+        )
+
+        # Mock for second call
+        mock_api.get(
+            "https://godbolt.org/api/languages",
+            payload=mock_languages,
+        )
+
+        # Test without search
+        languages = await client.get_languages_list()
+        assert len(languages) == 4
+        assert languages[0] == {"id": "c++", "name": "C++", "extensions": [".cpp", ".cxx", ".h"]}
+
+        # Test with search
+        languages = await client.get_languages_list("script")
+        assert len(languages) == 1
+        assert languages[0]["id"] == "javascript"
+
+    @pytest.mark.asyncio
     async def test_get_compilers(self, client, mock_api):
         """Test fetching compilers for a language."""
         # Match URL with query parameters for optimized fields

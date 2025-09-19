@@ -343,6 +343,27 @@ class CompilerExplorerClient:
             logger.error(f"Failed to get languages: {e}")
             raise
 
+    async def get_languages_list(self, search_text: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get simplified list of languages (id, name and extensions only) with optional search."""
+        full_languages = await self.get_languages()
+
+        # Filter to only include id, name, and extensions
+        simplified_languages = [
+            {"id": lang.get("id", ""), "name": lang.get("name", ""), "extensions": lang.get("extensions", [])}
+            for lang in full_languages
+        ]
+
+        # Apply search filter if provided
+        if search_text:
+            search_lower = search_text.lower()
+            simplified_languages = [
+                lang
+                for lang in simplified_languages
+                if (search_lower in lang["id"].lower() or search_lower in lang["name"].lower())
+            ]
+
+        return simplified_languages
+
     async def get_compilers(self, language: str, include_extended_info: bool = False) -> List[Dict[str, Any]]:
         """Get list of compilers for a language."""
         session = await self._get_session()

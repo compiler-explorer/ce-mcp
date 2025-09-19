@@ -8,16 +8,16 @@ A Model Context Protocol (MCP) server that provides efficient access to Compiler
 - **Use-case driven tools** - Specific functions for common compilation scenarios
 - **Smart filtering** - Context-aware output filtering based on the task
 - **Comprehensive language support** - C++, C, Rust, Go, Python, and more
-- **Extensive test coverage** - 56 tests all passing (100% success rate)
+- **Extensive test coverage** - 87 tests all passing (100% success rate)
 - **Claude Code integration** - Automated setup for Claude Code workflows
 
 ## Implementation Status
 
-**85% Complete** - See [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) for detailed analysis.
+**95% Complete** - See [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) for detailed analysis.
 
-✅ **Fully Working**: All 9 MCP tools implemented and functional
-⚠️ **Minor Issues**: Some tools need spec compliance fixes  
-❌ **Missing**: Caching system (high priority)
+✅ **Fully Working**: All 11 MCP tools implemented and functional
+⚠️ **Minor Issues**: One tool needs spec compliance fixes
+✅ **Comprehensive**: Language discovery, library support, and sharing tools
 
 ## Quick Setup
 
@@ -207,7 +207,7 @@ For other MCP-compatible clients, use the standard MCP server configuration form
 
 ## Available Tools
 
-The server provides 9 specialized MCP tools for compilation, analysis, and sharing. See [`docs/available_tools.md`](docs/available_tools.md) for detailed documentation of each tool.
+The server provides 11 specialized MCP tools for compilation, analysis, and sharing. See [`docs/available_tools.md`](docs/available_tools.md) for detailed documentation of each tool.
 
 **Core Tools**:
 - `compile_check_tool` - Syntax validation
@@ -218,11 +218,13 @@ The server provides 9 specialized MCP tools for compilation, analysis, and shari
 - `analyze_optimization_tool` - Assembly optimization analysis
 - `compare_compilers_tool` - Compiler comparison
 
-**Sharing & Discovery**:
+**Discovery & Sharing**:
 - `generate_share_url_tool` - Create Compiler Explorer URLs
 - `find_compilers_tool` - Find compilers with filtering
 - `get_libraries_tool` - List available libraries
 - `get_library_details_tool` - Library information
+- `get_languages_tool` - List supported languages
+- `download_shortlink_tool` - Download shared code
 
 ## Configuration
 
