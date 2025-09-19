@@ -343,8 +343,6 @@ def parse_version_info(raw_version_info: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     # Extract version number (e.g., "21.0.0git" from "clang version 21.0.0git")
-    import re
-
     version_match = re.search(r"version\s+([\d.]+\w*)", version_str)
     if version_match:
         parsed["version_number"] = version_match.group(1)

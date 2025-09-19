@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import warnings
 from typing import Any, Dict, List, Optional
 
 import aiohttp
@@ -67,7 +68,6 @@ class CompilerExplorerClient:
         """Cleanup on garbage collection."""
         if self.session and not self._closed:
             # Issue a warning instead of trying to close in __del__
-            import warnings
 
             warnings.warn(
                 "CompilerExplorerClient was not properly closed. " "Please call await client.close() in your code.",

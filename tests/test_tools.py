@@ -848,6 +848,7 @@ int main() { return 0; }"""
     async def test_validate_tools_cache_functionality(self, config):
         """Test that tool validation uses caching to avoid repeated API calls."""
         from unittest.mock import patch
+
         from ce_mcp.api_client import CompilerExplorerClient
 
         # Clear cache before test
@@ -892,6 +893,7 @@ int main() { return 0; }"""
     async def test_validate_tools_cache_expiration(self, config):
         """Test that cache expires after TTL."""
         from unittest.mock import patch
+
         from ce_mcp.api_client import CompilerExplorerClient
 
         # Clear cache before test

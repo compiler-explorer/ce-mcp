@@ -1,13 +1,24 @@
 """Tool implementations for Compiler Explorer MCP."""
 
+import difflib
+import re
 import time
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 from .api_client import CompilerExplorerClient
+from .assembly_diff import generate_assembly_diff
 from .config import Config
 from .experimental_utils import (
     ExperimentalCompilerFinder,
+    fetch_version_info_for_compilers,
     search_experimental_compilers,
+)
+from .library_utils import (
+    LibraryError,
+    LibraryNotFoundError,
+    format_library_error_with_suggestions,
+    search_libraries,
+    validate_and_resolve_libraries,
 )
 from .utils import (
     apply_text_filter,
@@ -134,8 +145,6 @@ def extract_compiler_suggestion(message: str) -> Optional[str]:
     - "use 'xyz' instead"
     - "note: suggested alternative: 'xyz'"
     """
-    import re
-
     # Pattern for "did you mean" suggestions
     did_you_mean = re.search(r"did you mean ['\"]([^'\"]+)['\"]", message, re.IGNORECASE)
     if did_you_mean:
@@ -261,13 +270,6 @@ async def compile_check(arguments: Dict[str, Any], config: Config) -> Dict[str, 
         # Resolve libraries if provided
         resolved_libraries = []
         if libraries:
-            from .library_utils import (
-                LibraryError,
-                LibraryNotFoundError,
-                format_library_error_with_suggestions,
-                search_libraries,
-                validate_and_resolve_libraries,
-            )
 
             try:
                 resolved_libraries = await validate_and_resolve_libraries(libraries, language, compiler, client)
@@ -317,13 +319,6 @@ async def compile_and_run(arguments: Dict[str, Any], config: Config) -> Dict[str
         # Resolve libraries if provided
         resolved_libraries = []
         if libraries:
-            from .library_utils import (
-                LibraryError,
-                LibraryNotFoundError,
-                format_library_error_with_suggestions,
-                search_libraries,
-                validate_and_resolve_libraries,
-            )
 
             try:
                 resolved_libraries = await validate_and_resolve_libraries(libraries, language, compiler, client)
@@ -425,13 +420,6 @@ async def compile_with_diagnostics(arguments: Dict[str, Any], config: Config) ->
         # Resolve libraries if provided
         resolved_libraries = []
         if libraries:
-            from .library_utils import (
-                LibraryError,
-                LibraryNotFoundError,
-                format_library_error_with_suggestions,
-                search_libraries,
-                validate_and_resolve_libraries,
-            )
 
             try:
                 resolved_libraries = await validate_and_resolve_libraries(libraries, language, compiler, client)
@@ -571,13 +559,6 @@ async def analyze_optimization(arguments: Dict[str, Any], config: Config) -> Dic
         # Resolve libraries if provided
         resolved_libraries = []
         if libraries:
-            from .library_utils import (
-                LibraryError,
-                LibraryNotFoundError,
-                format_library_error_with_suggestions,
-                search_libraries,
-                validate_and_resolve_libraries,
-            )
 
             try:
                 resolved_libraries = await validate_and_resolve_libraries(libraries, language, compiler, client)
@@ -696,7 +677,6 @@ def _analyze_execution_differences(
     Returns:
         Tuple of (differences_list, execution_diff_details)
     """
-    import difflib
 
     if len(results) < 2:
         return [], {}
@@ -879,7 +859,6 @@ async def compare_compilers(arguments: Dict[str, Any], config: Config) -> Dict[s
     libraries = arguments.get("libraries")
 
     # Import assembly diff utilities
-    from .assembly_diff import generate_assembly_diff
 
     client = CompilerExplorerClient(config)
 
@@ -887,13 +866,6 @@ async def compare_compilers(arguments: Dict[str, Any], config: Config) -> Dict[s
         # Resolve libraries if provided
         resolved_libraries = []
         if libraries:
-            from .library_utils import (
-                LibraryError,
-                LibraryNotFoundError,
-                format_library_error_with_suggestions,
-                search_libraries,
-                validate_and_resolve_libraries,
-            )
 
             try:
                 # Use first compiler for library validation
@@ -1091,13 +1063,6 @@ async def generate_share_url(arguments: Dict[str, Any], config: Config) -> Dict[
         # Resolve libraries if provided
         resolved_libraries = []
         if libraries:
-            from .library_utils import (
-                LibraryError,
-                LibraryNotFoundError,
-                format_library_error_with_suggestions,
-                search_libraries,
-                validate_and_resolve_libraries,
-            )
 
             try:
                 resolved_libraries = await validate_and_resolve_libraries(libraries, language, compiler, client)
@@ -1153,7 +1118,6 @@ async def find_compilers(arguments: Dict[str, Any], config: Config) -> Dict[str,
             categorized = finder.categorize_compilers(compilers)
 
             # Fetch version info for all nightly compilers
-            from .experimental_utils import fetch_version_info_for_compilers
 
             for cat_compilers in categorized.values():
                 await fetch_version_info_for_compilers(cat_compilers, client)
