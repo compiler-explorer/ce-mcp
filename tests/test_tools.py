@@ -12,6 +12,7 @@ from ce_mcp.tools import (
     compile_and_run,
     compile_check,
     compile_with_diagnostics,
+    download_shortlink,
     extract_compiler_suggestion,
     generate_share_url,
     validate_tools_for_compiler,
@@ -989,3 +990,181 @@ int main() { return 0; }"""
 
         # Clear cache for cleanup
         clear_tools_cache()
+
+    @pytest.mark.asyncio
+    async def test_download_shortlink_basic(self, config, tmp_path):
+        """Test basic shortlink download functionality."""
+        mock_shortlink_data = {
+            "sessions": [
+                {
+                    "language": "c++",
+                    "source": "int main() { return 42; }",
+                    "compilers": [{"id": "g132", "options": "-O2"}],
+                }
+            ]
+        }
+
+        with patch("ce_mcp.tools.CompilerExplorerClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value = mock_client
+            mock_client.get_shortlink_info.return_value = mock_shortlink_data
+            mock_client.get_languages.return_value = [{"id": "c++", "extensions": [".cpp", ".cxx", ".h"]}]
+
+            result = await download_shortlink(
+                {
+                    "shortlink_url": "https://godbolt.org/z/G38YP7eW4",
+                    "destination_path": str(tmp_path),
+                    "preserve_filenames": True,
+                    "fallback_prefix": "test",
+                    "include_metadata": True,
+                    "overwrite_existing": False,
+                },
+                config,
+            )
+
+            # Check result structure
+            assert "error" not in result
+            assert result["shortlink_id"] == "G38YP7eW4"
+            assert result["total_files"] == 1
+            assert len(result["files_saved"]) == 1
+            assert len(result["metadata_files"]) == 1
+
+            # Check file was created
+            saved_file = result["files_saved"][0]
+            assert saved_file["language"] == "c++"
+            assert saved_file["is_main_source"] is True
+            assert saved_file["saved_as"] == "test_001_main.cpp"
+
+            # Verify file content
+            file_path = tmp_path / saved_file["saved_as"]
+            assert file_path.exists()
+            content = file_path.read_text()
+            assert content == "int main() { return 42; }"
+
+            # Verify metadata file
+            metadata_path = tmp_path / result["metadata_files"][0]
+            assert metadata_path.exists()
+
+    @pytest.mark.asyncio
+    async def test_download_shortlink_with_named_files(self, config, tmp_path):
+        """Test shortlink download with named files from tree structure."""
+        mock_shortlink_data = {
+            "sessions": [
+                {
+                    "language": "c++",
+                    "source": "",  # Empty when using tree structure
+                    "trees": [
+                        {
+                            "files": [
+                                {
+                                    "name": "example.cpp",
+                                    "content": '#include <iostream>\nint main() { std::cout << "Hello"; }',
+                                    "isMainSource": True,
+                                },
+                                {
+                                    "name": "helper.h",
+                                    "content": "#pragma once\nvoid helper();",
+                                    "isMainSource": False,
+                                },
+                            ]
+                        }
+                    ],
+                    "compilers": [{"id": "clang1600", "options": "-std=c++20"}],
+                }
+            ]
+        }
+
+        with patch("ce_mcp.tools.CompilerExplorerClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value = mock_client
+            mock_client.get_shortlink_info.return_value = mock_shortlink_data
+            mock_client.get_languages.return_value = [{"id": "c++", "extensions": [".cpp", ".cxx", ".h"]}]
+
+            result = await download_shortlink(
+                {
+                    "shortlink_url": "x6673KPqP",
+                    "destination_path": str(tmp_path),
+                    "preserve_filenames": True,
+                    "include_metadata": False,
+                },
+                config,
+            )
+
+            # Check result
+            assert "error" not in result
+            assert result["shortlink_id"] == "x6673KPqP"
+            assert result["total_files"] == 2
+            assert len(result["files_saved"]) == 2
+
+            # Check files were preserved with original names
+            saved_files = {f["saved_as"]: f for f in result["files_saved"]}
+            assert "example.cpp" in saved_files
+            assert "helper.h" in saved_files
+
+            # Check main source detection
+            assert saved_files["example.cpp"]["is_main_source"] is True
+            assert saved_files["helper.h"]["is_main_source"] is False
+
+            # Verify file contents
+            cpp_content = (tmp_path / "example.cpp").read_text()
+            assert "std::cout" in cpp_content
+
+            h_content = (tmp_path / "helper.h").read_text()
+            assert "#pragma once" in h_content
+
+    @pytest.mark.asyncio
+    async def test_download_shortlink_error_handling(self, config, tmp_path):
+        """Test error handling in shortlink download."""
+        # Test missing shortlink_url
+        result = await download_shortlink({}, config)
+        assert "error" in result
+        assert "shortlink_url parameter is required" in result["error"]
+
+        # Test with invalid destination path
+        result = await download_shortlink(
+            {
+                "shortlink_url": "valid-id",
+                "destination_path": "/invalid/path/that/does/not/exist/and/cannot/be/created",
+            },
+            config,
+        )
+        assert "error" in result
+        assert "Invalid destination path" in result["error"]
+
+        # Test API failure
+        with patch("ce_mcp.tools.CompilerExplorerClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value = mock_client
+            mock_client.get_shortlink_info.side_effect = Exception("API Error")
+
+            result = await download_shortlink(
+                {
+                    "shortlink_url": "test123",
+                    "destination_path": str(tmp_path),
+                },
+                config,
+            )
+
+            assert "error" in result
+            assert "Failed to download shortlink" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_download_shortlink_no_source_code(self, config, tmp_path):
+        """Test handling of shortlinks with no source code."""
+        mock_shortlink_data = {"sessions": [{"language": "c++", "source": "", "compilers": []}]}  # Empty source
+
+        with patch("ce_mcp.tools.CompilerExplorerClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value = mock_client
+            mock_client.get_shortlink_info.return_value = mock_shortlink_data
+
+            result = await download_shortlink(
+                {
+                    "shortlink_url": "empty123",
+                    "destination_path": str(tmp_path),
+                },
+                config,
+            )
+
+            assert "error" in result
+            assert "No source code found" in result["error"]

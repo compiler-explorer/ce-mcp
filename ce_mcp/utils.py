@@ -1,7 +1,10 @@
 """Utility functions for Compiler Explorer MCP."""
 
+import os
 import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+from urllib.parse import urlparse
 
 
 def extract_compile_args_from_source(source_code: str, language: str) -> Optional[str]:
@@ -183,3 +186,157 @@ def format_compiler_info(
             info["tools"] = comp.tools
 
     return info
+
+
+def extract_link_id(shortlink_url: str) -> str:
+    """
+    Extract the link ID from a Compiler Explorer URL.
+
+    Args:
+        shortlink_url: Full URL (https://godbolt.org/z/G38YP7eW4) or just ID (G38YP7eW4)
+
+    Returns:
+        The extracted link ID
+
+    Raises:
+        ValueError: If the URL format is invalid
+    """
+    # If it's already just an ID (no protocol/domain), return it
+    if not shortlink_url.startswith(("http://", "https://")):
+        return shortlink_url.strip()
+
+    try:
+        parsed = urlparse(shortlink_url)
+        path = parsed.path.strip("/")
+
+        # Handle /z/ prefix for godbolt URLs
+        if path.startswith("z/"):
+            return path[2:]  # Remove "z/" prefix
+
+        # If no z/ prefix, assume the path is the ID
+        return path
+    except Exception as e:
+        raise ValueError(f"Invalid shortlink URL format: {shortlink_url}") from e
+
+
+async def get_language_extension(language: str, client: Optional[Any] = None) -> str:
+    """
+    Get the primary file extension for a language from CE's languages API.
+
+    Args:
+        language: Programming language name
+        client: Optional CE client (if None, falls back to static mapping)
+
+    Returns:
+        File extension (with dot) for the language
+    """
+    if client:
+        try:
+            languages = await client.get_languages()
+
+            # Find matching language (case-insensitive)
+            for lang_data in languages:
+                if lang_data.get("id", "").lower() == language.lower():
+                    extensions = lang_data.get("extensions", [])
+                    if extensions:
+                        # Return the first extension as primary
+                        return str(extensions[0])
+        except Exception:
+            # Fall back to static mapping if API fails
+            pass
+
+    # Static fallback mapping for common languages
+    extension_map = {
+        "c++": ".cpp",
+        "cpp": ".cpp",
+        "c": ".c",
+        "rust": ".rs",
+        "go": ".go",
+        "python": ".py",
+        "java": ".java",
+        "javascript": ".js",
+        "typescript": ".ts",
+        "kotlin": ".kt",
+        "swift": ".swift",
+        "pascal": ".pas",
+        "fortran": ".f90",
+        "assembly": ".s",
+        "haskell": ".hs",
+        "csharp": ".cs",
+        "fsharp": ".fs",
+        "d": ".d",
+        "nim": ".nim",
+        "zig": ".zig",
+        "v": ".v",
+        "ada": ".adb",
+        "cobol": ".cob",
+    }
+
+    return extension_map.get(language.lower(), ".txt")
+
+
+async def generate_filename(
+    original_filename: Optional[str],
+    language: str,
+    file_index: int,
+    fallback_prefix: str = "ce",
+    is_main_source: bool = False,
+    client: Optional[Any] = None,
+) -> str:
+    """
+    Generate an appropriate filename for a source file.
+
+    Args:
+        original_filename: Original filename from CE (may be None)
+        language: Programming language
+        file_index: Index for multiple files (1-based)
+        fallback_prefix: Prefix when no original filename
+        is_main_source: Whether this is marked as the main source file
+        client: Optional CE client for language extension lookup
+
+    Returns:
+        Generated filename
+    """
+    # Use original filename if available
+    if original_filename and original_filename.strip():
+        filename = original_filename.strip()
+        # Add main suffix if requested and not already present
+        if is_main_source and not filename.endswith("_main"):
+            base, ext = os.path.splitext(filename)
+            filename = f"{base}_main{ext}"
+        return filename
+
+    # Get extension from API or fallback
+    ext = await get_language_extension(language, client)
+    main_suffix = "_main" if is_main_source else ""
+
+    return f"{fallback_prefix}_{file_index:03d}{main_suffix}{ext}"
+
+
+def resolve_filename_conflicts(target_path: Path, preferred_filename: str) -> str:
+    """
+    Resolve filename conflicts by adding numbers.
+
+    Args:
+        target_path: Directory where file will be saved
+        preferred_filename: Desired filename
+
+    Returns:
+        Available filename (may have number suffix)
+    """
+    full_path = target_path / preferred_filename
+
+    if not full_path.exists():
+        return preferred_filename
+
+    # Extract base name and extension
+    base = full_path.stem
+    suffix = full_path.suffix
+
+    # Try numbered variants
+    counter = 1
+    while True:
+        new_filename = f"{base}_{counter}{suffix}"
+        if not (target_path / new_filename).exists():
+            return new_filename
+        counter += 1

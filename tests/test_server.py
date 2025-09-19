@@ -24,7 +24,7 @@ class TestCompilerExplorerMCP:
     @pytest.mark.asyncio
     async def test_tool_registration(self):
         """Test all tools are registered correctly."""
-        # Check all 6 tools are registered
+        # Check all 10 tools are registered
         expected_tools = [
             "compile_check_tool",
             "compile_and_run_tool",
@@ -32,6 +32,10 @@ class TestCompilerExplorerMCP:
             "analyze_optimization_tool",
             "compare_compilers_tool",
             "generate_share_url_tool",
+            "find_compilers_tool",
+            "get_libraries_tool",
+            "get_library_details_tool",
+            "download_shortlink_tool",
         ]
 
         # Get tools from FastMCP server
@@ -49,7 +53,11 @@ class TestCompilerExplorerMCP:
             compile_and_run_tool,
             compile_check_tool,
             compile_with_diagnostics_tool,
+            download_shortlink_tool,
+            find_compilers_tool,
             generate_share_url_tool,
+            get_libraries_tool,
+            get_library_details_tool,
         )
 
         # Check functions exist and are callable
@@ -59,3 +67,7 @@ class TestCompilerExplorerMCP:
         assert callable(analyze_optimization_tool)
         assert callable(compare_compilers_tool)
         assert callable(generate_share_url_tool)
+        assert callable(find_compilers_tool)
+        assert callable(get_libraries_tool)
+        assert callable(get_library_details_tool)
+        assert callable(download_shortlink_tool)

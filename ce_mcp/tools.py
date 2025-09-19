@@ -1,8 +1,11 @@
 """Tool implementations for Compiler Explorer MCP."""
 
 import difflib
+import json
+import os
 import re
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 from .api_client import CompilerExplorerClient
@@ -23,7 +26,10 @@ from .library_utils import (
 from .utils import (
     apply_text_filter,
     extract_compile_args_from_source,
+    extract_link_id,
     format_compiler_info,
+    generate_filename,
+    resolve_filename_conflicts,
 )
 
 # Cache for compiler tools to avoid repeated API calls
@@ -1334,6 +1340,194 @@ async def get_library_details_info(arguments: Dict[str, Any], config: Config) ->
             "language": language,
             "library_id": library_id,
         }
+
+    finally:
+        await client.close()
+
+
+async def download_shortlink(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
+    """Download and save source code from a Compiler Explorer shortlink."""
+    shortlink_url = arguments.get("shortlink_url")
+    destination_path = arguments.get("destination_path", ".")
+    preserve_filenames = arguments.get("preserve_filenames", True)
+    fallback_prefix = arguments.get("fallback_prefix", "ce")
+    include_metadata = arguments.get("include_metadata", True)
+    overwrite_existing = arguments.get("overwrite_existing", False)
+
+    if not shortlink_url:
+        return {"error": "shortlink_url parameter is required"}
+
+    try:
+        # Extract link ID from URL
+        link_id = extract_link_id(shortlink_url)
+    except ValueError as e:
+        return {"error": f"Invalid shortlink URL: {str(e)}"}
+
+    # Validate destination path
+    try:
+        dest_path = Path(destination_path).resolve()
+        dest_path.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        return {"error": f"Invalid destination path: {str(e)}"}
+
+    client = CompilerExplorerClient(config)
+
+    try:
+        # Get shortlink information
+        shortlink_data = await client.get_shortlink_info(link_id)
+
+        if not shortlink_data or "sessions" not in shortlink_data:
+            return {"error": f"No data found for shortlink {link_id}"}
+
+        sessions = shortlink_data["sessions"]
+        if not sessions:
+            return {"error": f"No sessions found in shortlink {link_id}"}
+
+        files_saved = []
+        metadata_files = []
+
+        for session_idx, session in enumerate(sessions, 1):
+            language = session.get("language", "unknown")
+            source = session.get("source", "")
+
+            # Check if there are named files in the session first
+            trees = session.get("trees", [])
+            has_tree_files = (
+                trees
+                and isinstance(trees, list)
+                and len(trees) > 0
+                and isinstance(trees[0], dict)
+                and "files" in trees[0]
+                and trees[0]["files"]
+            )
+
+            # Skip if no source and no tree files
+            if not source.strip() and not has_tree_files:
+                continue
+
+            # Process tree files if available
+            if has_tree_files:
+                # Handle named files from tree structure
+                tree = trees[0]  # Usually one tree per session
+                if isinstance(tree, dict) and "files" in tree:
+                    files = tree["files"]
+                    for file_idx, file_data in enumerate(files, 1):
+                        if isinstance(file_data, dict):
+                            file_source = file_data.get("content", "")
+                            if not file_source.strip():
+                                continue
+
+                            original_name = file_data.get("filename") or file_data.get("name")
+                            is_main = file_data.get("isMainSource", False)
+
+                            # Generate filename
+                            if preserve_filenames and original_name:
+                                filename = original_name
+                            else:
+                                filename = await generate_filename(
+                                    original_name, language, file_idx, fallback_prefix, is_main, client
+                                )
+
+                            # Resolve conflicts if not overwriting
+                            if not overwrite_existing:
+                                filename = resolve_filename_conflicts(dest_path, filename)
+
+                            # Save file
+                            file_path = dest_path / filename
+                            try:
+                                with open(file_path, "w", encoding="utf-8") as f:
+                                    f.write(file_source)
+
+                                files_saved.append(
+                                    {
+                                        "original_name": original_name,
+                                        "saved_as": filename,
+                                        "language": language,
+                                        "is_main_source": is_main,
+                                        "size_bytes": len(file_source.encode("utf-8")),
+                                        "lines": len(file_source.splitlines()),
+                                    }
+                                )
+                            except Exception as e:
+                                return {"error": f"Failed to save file {filename}: {str(e)}"}
+            else:
+                # Handle single source code (no tree structure)
+                # Check for session-level filename
+                session_filename = session.get("filename")
+                filename = await generate_filename(
+                    session_filename,  # Use session filename if available
+                    language,
+                    session_idx,
+                    fallback_prefix,
+                    True,  # Assume main source for single files
+                    client,
+                )
+
+                # Resolve conflicts if not overwriting
+                if not overwrite_existing:
+                    filename = resolve_filename_conflicts(dest_path, filename)
+
+                # Save file
+                file_path = dest_path / filename
+                try:
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        f.write(source)
+
+                    files_saved.append(
+                        {
+                            "original_name": session_filename,
+                            "saved_as": filename,
+                            "language": language,
+                            "is_main_source": True,
+                            "size_bytes": len(source.encode("utf-8")),
+                            "lines": len(source.splitlines()),
+                        }
+                    )
+                except Exception as e:
+                    return {"error": f"Failed to save file {filename}: {str(e)}"}
+
+        # Save metadata if requested
+        if include_metadata and files_saved:
+            metadata_filename = f"{link_id}_metadata.json"
+            if not overwrite_existing:
+                metadata_filename = resolve_filename_conflicts(dest_path, metadata_filename)
+
+            metadata = {
+                "shortlink_id": link_id,
+                "shortlink_url": shortlink_url,
+                "sessions": [
+                    {
+                        "language": session.get("language"),
+                        "compilers": session.get("compilers", []),
+                    }
+                    for session in sessions
+                ],
+                "download_timestamp": time.time(),
+                "files_count": len(files_saved),
+            }
+
+            metadata_path = dest_path / metadata_filename
+            try:
+                with open(metadata_path, "w", encoding="utf-8") as f:
+                    json.dump(metadata, f, indent=2)
+                metadata_files.append(metadata_filename)
+            except Exception as e:
+                return {"error": f"Failed to save metadata: {str(e)}"}
+
+        if not files_saved:
+            return {"error": f"No source code found in shortlink {link_id}"}
+
+        return {
+            "shortlink_id": link_id,
+            "total_files": len(files_saved),
+            "files_saved": files_saved,
+            "metadata_files": metadata_files,
+            "output_directory": str(dest_path),
+            "summary": f"Saved {len(files_saved)} file{'s' if len(files_saved) != 1 else ''} from CE shortlink {link_id}",
+        }
+
+    except Exception as e:
+        return {"error": f"Failed to download shortlink: {str(e)}"}
 
     finally:
         await client.close()

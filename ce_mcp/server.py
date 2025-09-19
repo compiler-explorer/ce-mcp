@@ -12,6 +12,7 @@ from .tools import (
     compile_and_run,
     compile_check,
     compile_with_diagnostics,
+    download_shortlink,
     find_compilers,
     generate_share_url,
     get_libraries_list,
@@ -762,6 +763,80 @@ async def get_library_details_tool(
         {
             "language": language,
             "library_id": library_id,
+        },
+        config,
+    )
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+async def download_shortlink_tool(
+    shortlink_url: str,
+    destination_path: str,
+    preserve_filenames: bool = True,
+    fallback_prefix: str = "ce",
+    include_metadata: bool = True,
+    overwrite_existing: bool = False,
+) -> str:
+    """Download and save source code from a Compiler Explorer shortlink to local files.
+
+    This tool extracts source code from Compiler Explorer shared links and saves it to
+    local files, preserving original filenames when available. Perfect for extracting
+    code examples, analyzing shared configurations, and integrating CE examples into
+    local projects.
+
+    **Use Cases:**
+    - **Code extraction**: Download shared code examples for local analysis
+    - **Project integration**: Import CE examples into local development
+    - **Learning**: Save interesting code snippets for study
+    - **Backup**: Archive important code configurations
+    - **Collaboration**: Download team-shared code examples
+
+    **Parameters:**
+    - shortlink_url: Full CE URL (https://godbolt.org/z/G38YP7eW4) or just ID (G38YP7eW4)
+    - destination_path: Directory path where files should be saved (LLM-controlled)
+    - preserve_filenames: Use original CE filenames when available (default: True)
+    - fallback_prefix: Prefix for generated filenames when no original name (default: "ce")
+    - include_metadata: Save compilation settings as JSON metadata file (default: True)
+    - overwrite_existing: Overwrite existing files instead of creating numbered variants (default: False)
+
+    **Response includes:**
+    - List of saved files with original names, languages, and sizes
+    - Metadata files created (if requested)
+    - Summary of download operation
+    - Error details if download fails
+
+    **File Naming:**
+    - Original filenames are preserved when available (example.cpp)
+    - Generated names for anonymous files (ce_001.cpp, ce_002.c)
+    - Main source files can be marked with suffix (example_main.cpp)
+    - Conflicts resolved with numbers (example_1.cpp, example_2.cpp)
+
+    **Multi-file Support:**
+    - Handles complex CE projects with multiple files
+    - Preserves file relationships and metadata
+    - Saves compiler configurations for reproduction
+
+    **Examples:**
+    ```
+    # Save to current directory
+    download_shortlink_tool("https://godbolt.org/z/G38YP7eW4", ".")
+
+    # Save to specific project directory
+    download_shortlink_tool("G38YP7eW4", "/path/to/project/examples")
+
+    # Save without metadata
+    download_shortlink_tool("https://godbolt.org/z/abc123", "./temp", include_metadata=False)
+    ```
+    """
+    result = await download_shortlink(
+        {
+            "shortlink_url": shortlink_url,
+            "destination_path": destination_path,
+            "preserve_filenames": preserve_filenames,
+            "fallback_prefix": fallback_prefix,
+            "include_metadata": include_metadata,
+            "overwrite_existing": overwrite_existing,
         },
         config,
     )

@@ -455,6 +455,18 @@ class CompilerExplorerClient:
 
         return filtered_library
 
+    async def get_shortlink_info(self, link_id: str) -> Dict[str, Any]:
+        """Get shortlink information from Compiler Explorer."""
+        session = await self._get_session()
+        url = f"{self.config.api.endpoint}/shortlinkinfo/{link_id}"
+        try:
+            async with session.get(url) as response:
+                response.raise_for_status()
+                return await response.json()  # type: ignore[no-any-return]
+        except ClientError as e:
+            logger.error(f"Failed to get shortlink info: {e}")
+            raise
+
     async def get_compiler_version(self, compiler_id: str) -> Dict[str, Any]:
         """Get deployed version information for a compiler."""
         session = await self._get_session()
