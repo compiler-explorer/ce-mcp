@@ -698,6 +698,23 @@ async def find_compilers_tool(
         - Get GCC 13.2 with compile tools: search_text="g132", include_compile_tools=True
         - Find exact compiler by ID: search_text="clang1600", exact_search=True
     """
+    # Validate search_text to prevent overly broad searches that exceed token limits
+    if search_text and not exact_search:
+        forbidden_terms = ["gcc", "clang", "g++", "clang++"]
+        search_lower = search_text.lower().strip()
+        if search_lower in forbidden_terms:
+            return json.dumps({
+                "error": f"Search term '{search_text}' is too broad and would exceed token limits (25k+). Please be more specific:",
+                "suggestions": [
+                    f"Use specific versions: '{search_text} 13', '{search_text} 14', '{search_text} 17'",
+                    f"Use architecture prefix: 'x86-64 {search_text}', 'arm64 {search_text}'",
+                    f"Use exact compiler ID with exact_search=True: '{search_text}132', '{search_text}1600'"
+                ],
+                "valid_examples": [
+                    "gcc 13", "clang 17", "msvc", "nightly", "g132", "clang1600"
+                ]
+            }, indent=2)
+
     result = await find_compilers(
         {
             "language": language,

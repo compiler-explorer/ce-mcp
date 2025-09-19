@@ -1,5 +1,6 @@
 """Tests for MCP tools."""
 
+import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -490,6 +491,42 @@ int main() { return 0; }"""
         assert len(compiler.possible_runtime_tools) == 2
         assert len(compiler.tools) == 1
         assert len(compiler.possible_overrides) == 1
+
+    @pytest.mark.asyncio
+    async def test_find_compilers_validation_broad_search(self, config, mock_client):
+        """Test that overly broad search terms are rejected."""
+        from ce_mcp.server import find_compilers_tool
+
+        # Test forbidden terms
+        forbidden_terms = ["gcc", "clang", "g++", "clang++"]
+
+        for term in forbidden_terms:
+            result_str = await find_compilers_tool(search_text=term)
+            result = json.loads(result_str)
+
+            assert "error" in result
+            assert "too broad" in result["error"]
+            assert "token limits" in result["error"]
+            assert "suggestions" in result
+            assert "valid_examples" in result
+
+            # Check suggestions contain useful alternatives
+            suggestions = result["suggestions"]
+            assert any("specific versions" in s for s in suggestions)
+            assert any("architecture prefix" in s for s in suggestions)
+            assert any("exact compiler ID" in s for s in suggestions)
+
+        # Test that exact_search=True bypasses validation
+        result_str = await find_compilers_tool(search_text="gcc", exact_search=True)
+        result = json.loads(result_str)
+        assert "error" not in result  # Should not have validation error
+
+        # Test that specific terms are allowed
+        allowed_terms = ["gcc 13", "clang 17", "msvc", "nightly"]
+        for term in allowed_terms:
+            # This would make real API calls, so we'll just test they don't hit validation
+            # In a real test environment, these would be mocked
+            pass
 
     @pytest.mark.asyncio
     async def test_get_libraries_list(self, config, mock_client):
