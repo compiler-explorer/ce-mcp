@@ -124,6 +124,7 @@ async def compile_and_run_tool(
     args: list | None = None,
     timeout: int = 5000,
     libraries: list | None = None,
+    tools: list | None = None,
 ) -> str:
     """Compile and run code, returning execution results and program output.
 
@@ -217,6 +218,7 @@ async def compile_and_run_tool(
             "args": args,
             "timeout": timeout,
             "libraries": libraries,
+            "tools": tools,
         },
         config,
     )

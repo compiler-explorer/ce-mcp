@@ -95,7 +95,7 @@ def generate_assembly_diff(
 
 def analyze_diff(diff_lines: List[str]) -> Dict[str, Any]:
     """Analyze diff to extract statistics and patterns."""
-    stats = {
+    stats: Dict[str, Any] = {
         "lines_added": 0,
         "lines_removed": 0,
         "lines_changed": 0,
@@ -105,32 +105,44 @@ def analyze_diff(diff_lines: List[str]) -> Dict[str, Any]:
         "function_calls_removed": [],
     }
 
+    # Explicitly type the lists for mypy
+    instructions_added: List[str] = []
+    instructions_removed: List[str] = []
+    function_calls_added: List[str] = []
+    function_calls_removed: List[str] = []
+
     for line in diff_lines:
         if line.startswith("+") and not line.startswith("+++"):
             stats["lines_added"] += 1
             # Extract instruction
             instruction = extract_instruction(line[1:])
             if instruction:
-                stats["instructions_added"].append(instruction)
+                instructions_added.append(instruction)
             # Check for function calls
             call = extract_function_call(line[1:])
             if call:
-                stats["function_calls_added"].append(call)
+                function_calls_added.append(call)
 
         elif line.startswith("-") and not line.startswith("---"):
             stats["lines_removed"] += 1
             instruction = extract_instruction(line[1:])
             if instruction:
-                stats["instructions_removed"].append(instruction)
+                instructions_removed.append(instruction)
             call = extract_function_call(line[1:])
             if call:
-                stats["function_calls_removed"].append(call)
+                function_calls_removed.append(call)
+
+    # Update stats with collected data
+    stats["instructions_added"] = instructions_added
+    stats["instructions_removed"] = instructions_removed
+    stats["function_calls_added"] = function_calls_added
+    stats["function_calls_removed"] = function_calls_removed
 
     # Deduplicate and count
-    stats["unique_instructions_added"] = list(set(stats["instructions_added"]))
-    stats["unique_instructions_removed"] = list(set(stats["instructions_removed"]))
-    stats["unique_calls_added"] = list(set(stats["function_calls_added"]))
-    stats["unique_calls_removed"] = list(set(stats["function_calls_removed"]))
+    stats["unique_instructions_added"] = list(set(instructions_added))
+    stats["unique_instructions_removed"] = list(set(instructions_removed))
+    stats["unique_calls_added"] = list(set(function_calls_added))
+    stats["unique_calls_removed"] = list(set(function_calls_removed))
 
     return stats
 

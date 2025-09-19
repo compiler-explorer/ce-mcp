@@ -131,7 +131,9 @@ def parse_execution_result(exec_result: dict) -> dict:
     }
 
 
-def apply_text_filter(compilers_list: List[Any], search_text: Optional[str], exact_search: bool = False) -> List[Any]:
+def apply_text_filter(
+    compilers_list: List[Any], search_text: Optional[str], exact_search: bool = False
+) -> List[Any]:
     """Filter compilers by search text in names and IDs."""
     if not search_text:
         return compilers_list

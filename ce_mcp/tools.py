@@ -219,6 +219,7 @@ async def compile_and_run(arguments: Dict[str, Any], config: Config) -> Dict[str
     args = arguments.get("args", [])
     timeout = arguments.get("timeout", 5000)
     libraries = arguments.get("libraries")
+    tools = arguments.get("tools")
 
     client = CompilerExplorerClient(config)
 
@@ -261,6 +262,7 @@ async def compile_and_run(arguments: Dict[str, Any], config: Config) -> Dict[str
             args,
             timeout,
             resolved_libraries,
+            tools,
         )
     finally:
         await client.close()
@@ -799,7 +801,12 @@ async def compare_compilers(
 
             if comparison_type == "execution":
                 result = await client.compile_and_execute(
-                    source, language, compiler_id, options, libraries=resolved_libraries
+                    source,
+                    language,
+                    compiler_id,
+                    options,
+                    libraries=resolved_libraries,
+                    tools=None,
                 )
 
                 # Handle different API response formats (same as compile_and_run_tool)
@@ -1118,13 +1125,16 @@ async def find_compilers(arguments: Dict[str, Any], config: Config) -> Dict[str,
                 "compilers": [
                     (
                         {
-                            **cast(Dict[str, Any], format_compiler_info(
-                                comp,
-                                False,  # ids_only=False for dict unpacking
-                                include_overrides,
-                                include_runtime_tools,
-                                include_compile_tools,
-                            )),
+                            **cast(
+                                Dict[str, Any],
+                                format_compiler_info(
+                                    comp,
+                                    False,  # ids_only=False for dict unpacking
+                                    include_overrides,
+                                    include_runtime_tools,
+                                    include_compile_tools,
+                                ),
+                            ),
                             "category": comp.category,
                         }
                         if not ids_only

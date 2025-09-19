@@ -22,11 +22,11 @@ class CompilerExplorerClient:
         self.connector: Optional[aiohttp.TCPConnector] = None
         self._closed = False
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "CompilerExplorerClient":
         """Async context manager entry."""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit."""
         await self.close()
 
@@ -63,7 +63,7 @@ class CompilerExplorerClient:
 
             self._closed = True
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Cleanup on garbage collection."""
         if self.session and not self._closed:
             # Issue a warning instead of trying to close in __del__
@@ -196,6 +196,7 @@ class CompilerExplorerClient:
         args: List[str] | None = None,
         timeout: int = 5000,
         libraries: List[Dict[str, str]] | None = None,
+        tools: List[Dict[str, Any]] | None = None,
     ) -> Dict[str, Any]:
         """Compile and execute source code."""
         session = await self._get_session()
@@ -225,7 +226,7 @@ class CompilerExplorerClient:
                     "trim": self.config.filters.trim,
                     "debugCalls": self.config.filters.debugCalls,
                 },
-                "tools": [],
+                "tools": tools or [],
                 "libraries": libraries or [],
             },
         }
