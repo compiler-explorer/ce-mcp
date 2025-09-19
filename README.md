@@ -208,4 +208,4 @@ compiler_explorer_mcp:
 
 ## License
 
-MIT
+BSD-2-Clause
