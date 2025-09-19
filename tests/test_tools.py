@@ -26,16 +26,30 @@ class TestTools:
     def test_extract_compiler_suggestion(self):
         """Test compiler suggestion extraction patterns."""
         # Test "did you mean" pattern
-        assert extract_compiler_suggestion("error: 'foo' was not declared; did you mean 'bar'?") == "did you mean 'bar'?"
+        assert (
+            extract_compiler_suggestion(
+                "error: 'foo' was not declared; did you mean 'bar'?"
+            )
+            == "did you mean 'bar'?"
+        )
 
         # Test "use instead" pattern
-        assert extract_compiler_suggestion("warning: use 'const' instead of 'volatile'") == "use 'const' instead"
+        assert (
+            extract_compiler_suggestion("warning: use 'const' instead of 'volatile'")
+            == "use 'const' instead"
+        )
 
         # Test "suggested alternative" pattern
-        assert extract_compiler_suggestion("note: suggested alternative: 'std::vector'") == "suggested alternative: 'std::vector'"
+        assert (
+            extract_compiler_suggestion("note: suggested alternative: 'std::vector'")
+            == "suggested alternative: 'std::vector'"
+        )
 
         # Test fix-it pattern
-        assert extract_compiler_suggestion("note: fix-it applied: 'auto'") == "fix-it: 'auto'"
+        assert (
+            extract_compiler_suggestion("note: fix-it applied: 'auto'")
+            == "fix-it: 'auto'"
+        )
 
         # Test no suggestion
         assert extract_compiler_suggestion("error: syntax error") is None
@@ -179,8 +193,8 @@ class TestTools:
                         "column": 5,
                         "text": "error: 'foo' was not declared in this scope; did you mean 'bar'?",
                         "severity": 2,
-                        "file": "example.cpp"
-                    }
+                        "file": "example.cpp",
+                    },
                 },
                 {
                     "text": "note: use 'const' instead of 'volatile'",
@@ -189,9 +203,9 @@ class TestTools:
                         "column": 1,
                         "text": "note: use 'const' instead of 'volatile'",
                         "severity": 0,
-                        "file": "example.cpp"
-                    }
-                }
+                        "file": "example.cpp",
+                    },
+                },
             ],
         }
 
@@ -303,7 +317,7 @@ class TestTools:
 
         result = await compare_compilers(
             {
-                "source": "#include <iostream>\nint main() { std::cout << \"Hello World\"; return 0; }",
+                "source": '#include <iostream>\nint main() { std::cout << "Hello World"; return 0; }',
                 "language": "c++",
                 "compilers": [
                     {"id": "g++", "options": "-O2"},
@@ -390,9 +404,10 @@ int main() { return 0; }"""
         from unittest.mock import patch
 
         # Mock the search function to return a simple result
-        with patch('ce_mcp.tools.search_experimental_compilers') as mock_search:
+        with patch("ce_mcp.tools.search_experimental_compilers") as mock_search:
             # Mock compiler with tools
             from ce_mcp.experimental_utils import ExperimentalCompiler
+
             test_compiler = ExperimentalCompiler(
                 id="test_gcc",
                 name="Test GCC",
@@ -402,20 +417,16 @@ int main() { return 0; }"""
                 description="Test GCC compiler",
                 version_info=None,
                 modified=None,
-                category="standard"
+                category="standard",
             )
 
             # Add tool attributes
             test_compiler.possible_runtime_tools = [
                 {"id": "perf", "name": "perf profiler"},
-                {"id": "valgrind", "name": "Valgrind"}
+                {"id": "valgrind", "name": "Valgrind"},
             ]
-            test_compiler.tools = [
-                {"id": "analyzer", "name": "Static Analyzer"}
-            ]
-            test_compiler.possible_overrides = [
-                {"name": "arch", "values": ["x86_64"]}
-            ]
+            test_compiler.tools = [{"id": "analyzer", "name": "Static Analyzer"}]
+            test_compiler.possible_overrides = [{"name": "arch", "values": ["x86_64"]}]
 
             mock_search.return_value = [test_compiler]
 
@@ -452,20 +463,16 @@ int main() { return 0; }"""
             description="Test GCC compiler",
             version_info=None,
             modified=None,
-            category="standard"
+            category="standard",
         )
 
         # Add tool attributes
         compiler.possible_runtime_tools = [
             {"id": "perf", "name": "perf profiler"},
-            {"id": "valgrind", "name": "Valgrind"}
+            {"id": "valgrind", "name": "Valgrind"},
         ]
-        compiler.tools = [
-            {"id": "analyzer", "name": "Static Analyzer"}
-        ]
-        compiler.possible_overrides = [
-            {"name": "arch", "values": ["x86_64"]}
-        ]
+        compiler.tools = [{"id": "analyzer", "name": "Static Analyzer"}]
+        compiler.possible_overrides = [{"name": "arch", "values": ["x86_64"]}]
 
         # Test basic formatting (no tools)
         from ce_mcp.tools import find_compilers
@@ -477,9 +484,9 @@ int main() { return 0; }"""
         assert compiler.id == "test_gcc"
 
         # Test that compiler has the required attributes
-        assert hasattr(compiler, 'possible_runtime_tools')
-        assert hasattr(compiler, 'tools')
-        assert hasattr(compiler, 'possible_overrides')
+        assert hasattr(compiler, "possible_runtime_tools")
+        assert hasattr(compiler, "tools")
+        assert hasattr(compiler, "possible_overrides")
 
         # Verify the tool data
         assert len(compiler.possible_runtime_tools) == 2
@@ -495,7 +502,7 @@ int main() { return 0; }"""
         mock_client.get_libraries_list.return_value = [
             {"id": "boost", "name": "Boost C++ Libraries"},
             {"id": "fmt", "name": "fmt"},
-            {"id": "range-v3", "name": "Range-v3"}
+            {"id": "range-v3", "name": "Range-v3"},
         ]
 
         # Test without search
@@ -538,8 +545,8 @@ int main() { return 0; }"""
             "description": "Boost provides free peer-reviewed portable C++ source libraries",
             "versions": [
                 {"id": "180", "version": "1.80.0"},
-                {"id": "181", "version": "1.81.0"}
-            ]
+                {"id": "181", "version": "1.81.0"},
+            ],
         }
         mock_client.get_library_details.return_value = mock_library
 
@@ -593,9 +600,17 @@ int main() { return 0; }"""
                 "url": "https://www.boost.org/",
                 "description": "Boost libraries",
                 "versions": [
-                    {"id": "180", "version": "1.80.0", "staticliblink": ["boost_system"]},
-                    {"id": "181", "version": "1.81.0", "staticliblink": ["boost_system"]}
-                ]
+                    {
+                        "id": "180",
+                        "version": "1.80.0",
+                        "staticliblink": ["boost_system"],
+                    },
+                    {
+                        "id": "181",
+                        "version": "1.81.0",
+                        "staticliblink": ["boost_system"],
+                    },
+                ],
             },
             {
                 "id": "fmt",
@@ -604,13 +619,14 @@ int main() { return 0; }"""
                 "description": "Formatting library",
                 "versions": [
                     {"id": "90", "version": "9.0.0", "staticliblink": ["fmt"]}
-                ]
-            }
+                ],
+            },
         ]
 
         # Mock the get_libraries method
         async def mock_get_libraries(lang):
             return full_libraries_mock
+
         client.get_libraries = mock_get_libraries
 
         # Test get_libraries_list

@@ -1,17 +1,21 @@
 """Tool implementations for Compiler Explorer MCP."""
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional, cast
 
 from .config import Config
 from .api_client import CompilerExplorerClient
-from .utils import extract_compile_args_from_source
+from .utils import (
+    extract_compile_args_from_source,
+    apply_text_filter,
+    format_compiler_info,
+)
 from .experimental_utils import (
     search_experimental_compilers,
     ExperimentalCompilerFinder,
 )
 
 
-def extract_compiler_suggestion(message: str) -> str:
+def extract_compiler_suggestion(message: str) -> Optional[str]:
     """
     Extract compiler suggestions from diagnostic messages.
 
@@ -23,7 +27,9 @@ def extract_compiler_suggestion(message: str) -> str:
     import re
 
     # Pattern for "did you mean" suggestions
-    did_you_mean = re.search(r"did you mean ['\"]([^'\"]+)['\"]", message, re.IGNORECASE)
+    did_you_mean = re.search(
+        r"did you mean ['\"]([^'\"]+)['\"]", message, re.IGNORECASE
+    )
     if did_you_mean:
         return f"did you mean '{did_you_mean.group(1)}'?"
 
@@ -33,7 +39,9 @@ def extract_compiler_suggestion(message: str) -> str:
         return f"use '{use_instead.group(1)}' instead"
 
     # Pattern for "suggested alternative" notes
-    suggested = re.search(r"suggested alternative: ['\"]([^'\"]+)['\"]", message, re.IGNORECASE)
+    suggested = re.search(
+        r"suggested alternative: ['\"]([^'\"]+)['\"]", message, re.IGNORECASE
+    )
     if suggested:
         return f"suggested alternative: '{suggested.group(1)}'"
 
@@ -352,7 +360,12 @@ async def compile_with_diagnostics(
                 raise
 
         result = await client.compile(
-            source, language, compiler, options, libraries=resolved_libraries, tools=tools
+            source,
+            language,
+            compiler,
+            options,
+            libraries=resolved_libraries,
+            tools=tools,
         )
     finally:
         await client.close()
@@ -416,12 +429,14 @@ async def compile_with_diagnostics(
     tool_outputs = []
     for tool_result in result.get("tools", []):
         if isinstance(tool_result, dict) and "stdout" in tool_result:
-            tool_outputs.append({
-                "tool_id": tool_result.get("id", "unknown"),
-                "stdout": tool_result.get("stdout", []),
-                "stderr": tool_result.get("stderr", []),
-                "code": tool_result.get("code", 0),
-            })
+            tool_outputs.append(
+                {
+                    "tool_id": tool_result.get("id", "unknown"),
+                    "stdout": tool_result.get("stdout", []),
+                    "stderr": tool_result.get("stderr", []),
+                    "code": tool_result.get("code", 0),
+                }
+            )
 
     return {
         "success": result.get("code", 1) == 0,
@@ -533,7 +548,9 @@ async def analyze_optimization(
     }
 
 
-def _analyze_execution_differences(results: List[Dict[str, Any]]) -> Tuple[List[str], Dict[str, Any]]:
+def _analyze_execution_differences(
+    results: List[Dict[str, Any]],
+) -> Tuple[List[str], Dict[str, Any]]:
     """Analyze differences in execution results between compilers.
 
     Returns:
@@ -552,9 +569,13 @@ def _analyze_execution_differences(results: List[Dict[str, Any]]) -> Tuple[List[
     comp1, comp2 = result1["compiled"], result2["compiled"]
     if comp1 != comp2:
         if comp1 and not comp2:
-            differences.append(f"{result1['compiler']} compiled successfully, {result2['compiler']} failed")
+            differences.append(
+                f"{result1['compiler']} compiled successfully, {result2['compiler']} failed"
+            )
         elif comp2 and not comp1:
-            differences.append(f"{result2['compiler']} compiled successfully, {result1['compiler']} failed")
+            differences.append(
+                f"{result2['compiler']} compiled successfully, {result1['compiler']} failed"
+            )
     else:
         if comp1 and comp2:
             differences.append("Both compilers compiled successfully")
@@ -566,12 +587,16 @@ def _analyze_execution_differences(results: List[Dict[str, Any]]) -> Tuple[List[
         # Compare execution status
         exec1, exec2 = result1["executed"], result2["executed"]
         if exec1 != exec2:
-            differences.append(f"Execution status differs: {result1['compiler']}={'executed' if exec1 else 'not executed'}, {result2['compiler']}={'executed' if exec2 else 'not executed'}")
+            differences.append(
+                f"Execution status differs: {result1['compiler']}={'executed' if exec1 else 'not executed'}, {result2['compiler']}={'executed' if exec2 else 'not executed'}"
+            )
 
         # Compare exit codes
         exit1, exit2 = result1["exit_code"], result2["exit_code"]
         if exit1 != exit2:
-            differences.append(f"Exit codes differ: {result1['compiler']}={exit1}, {result2['compiler']}={exit2}")
+            differences.append(
+                f"Exit codes differ: {result1['compiler']}={exit1}, {result2['compiler']}={exit2}"
+            )
 
         # Compare stdout
         stdout1, stdout2 = result1["stdout"], result2["stdout"]
@@ -582,20 +607,26 @@ def _analyze_execution_differences(results: List[Dict[str, Any]]) -> Tuple[List[
             if len(stdout_lines1) != len(stdout_lines2):
                 diff_lines = len(stdout_lines2) - len(stdout_lines1)
                 if diff_lines > 0:
-                    differences.append(f"Stdout differs: {result2['compiler']} output has {diff_lines} more lines")
+                    differences.append(
+                        f"Stdout differs: {result2['compiler']} output has {diff_lines} more lines"
+                    )
                 else:
-                    differences.append(f"Stdout differs: {result1['compiler']} output has {abs(diff_lines)} more lines")
+                    differences.append(
+                        f"Stdout differs: {result1['compiler']} output has {abs(diff_lines)} more lines"
+                    )
             else:
                 differences.append("Stdout content differs")
 
             # Generate unified diff for stdout
-            diff_details["stdout_diff"] = "\n".join(difflib.unified_diff(
-                stdout_lines1,
-                stdout_lines2,
-                fromfile=f"{result1['compiler']} {result1['options']}",
-                tofile=f"{result2['compiler']} {result2['options']}",
-                lineterm=""
-            ))
+            diff_details["stdout_diff"] = "\n".join(
+                difflib.unified_diff(
+                    stdout_lines1,
+                    stdout_lines2,
+                    fromfile=f"{result1['compiler']} {result1['options']}",
+                    tofile=f"{result2['compiler']} {result2['options']}",
+                    lineterm="",
+                )
+            )
 
         # Compare stderr
         stderr1, stderr2 = result1["stderr"], result2["stderr"]
@@ -606,20 +637,26 @@ def _analyze_execution_differences(results: List[Dict[str, Any]]) -> Tuple[List[
             if len(stderr_lines1) != len(stderr_lines2):
                 diff_lines = len(stderr_lines2) - len(stderr_lines1)
                 if diff_lines > 0:
-                    differences.append(f"Stderr differs: {result2['compiler']} output has {diff_lines} more lines")
+                    differences.append(
+                        f"Stderr differs: {result2['compiler']} output has {diff_lines} more lines"
+                    )
                 else:
-                    differences.append(f"Stderr differs: {result1['compiler']} output has {abs(diff_lines)} more lines")
+                    differences.append(
+                        f"Stderr differs: {result1['compiler']} output has {abs(diff_lines)} more lines"
+                    )
             else:
                 differences.append("Stderr content differs")
 
             # Generate unified diff for stderr
-            diff_details["stderr_diff"] = "\n".join(difflib.unified_diff(
-                stderr_lines1,
-                stderr_lines2,
-                fromfile=f"{result1['compiler']} {result1['options']}",
-                tofile=f"{result2['compiler']} {result2['options']}",
-                lineterm=""
-            ))
+            diff_details["stderr_diff"] = "\n".join(
+                difflib.unified_diff(
+                    stderr_lines1,
+                    stderr_lines2,
+                    fromfile=f"{result1['compiler']} {result1['options']}",
+                    tofile=f"{result2['compiler']} {result2['options']}",
+                    lineterm="",
+                )
+            )
 
     # Add summary
     if diff_details:
@@ -985,9 +1022,7 @@ async def generate_share_url(
     return {"url": url}
 
 
-async def find_compilers(
-    arguments: Dict[str, Any], config: Config
-) -> Dict[str, Any]:
+async def find_compilers(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
     """Find compilers with optional filtering by experimental features, proposals, or tools."""
     language = arguments.get("language", "c++")
     proposal = arguments.get("proposal")
@@ -1000,55 +1035,6 @@ async def find_compilers(
     include_overrides = arguments.get("include_overrides", False)
     include_runtime_tools = arguments.get("include_runtime_tools", False)
     include_compile_tools = arguments.get("include_compile_tools", False)
-
-    def apply_text_filter(compilers_list, search_text, exact_search=False):
-        """Filter compilers by search text in names and IDs."""
-        if not search_text:
-            return compilers_list
-
-        if exact_search:
-            # Exact match on compiler ID (case-sensitive)
-            return [comp for comp in compilers_list if comp.id == search_text]
-        else:
-            # Partial match on names and IDs (case-insensitive)
-            search_lower = search_text.lower()
-            return [
-                comp for comp in compilers_list
-                if search_lower in comp.id.lower() or search_lower in comp.name.lower()
-            ]
-
-    def format_compiler_info(comp, ids_only=False, include_overrides=False, include_runtime_tools=False, include_compile_tools=False):
-        """Format compiler info with optional ids_only mode, overrides, and tools."""
-        if ids_only:
-            return comp.id
-
-        info = {
-            "id": comp.id,
-            "name": comp.name,
-            "proposals": comp.proposal_numbers,
-            "features": comp.features,
-            "is_nightly": comp.is_nightly,
-            "description": comp.description,
-            "version_info": comp.version_info,
-            "modified": comp.modified,
-        }
-
-        # Add possibleOverrides if requested and available
-        if include_overrides and hasattr(comp, 'possible_overrides'):
-            info["possible_overrides"] = comp.possible_overrides
-
-        # Add possibleRuntimeTools if requested and available
-        if include_runtime_tools and hasattr(comp, 'possible_runtime_tools'):
-            info["possible_runtime_tools"] = comp.possible_runtime_tools
-
-        # Add tools (compile-time tools) if requested and available
-        if include_compile_tools and hasattr(comp, 'tools'):
-            info["tools"] = {
-                tool_id: {"id": tool_data["id"], "name": tool_data["tool"]["name"]}
-                for tool_id, tool_data in comp.tools.items()
-            }
-
-        return info
 
     client = CompilerExplorerClient(config)
 
@@ -1083,29 +1069,44 @@ async def find_compilers(
 
             for cat_name, cat_compilers in categorized.items():
                 # Apply text filter to category compilers
-                filtered_compilers = apply_text_filter(cat_compilers, search_text, exact_search)
+                filtered_compilers = apply_text_filter(
+                    cat_compilers, search_text, exact_search
+                )
 
-                if filtered_compilers:  # Only include categories with matching compilers
+                if (
+                    filtered_compilers
+                ):  # Only include categories with matching compilers
                     result["categories"][cat_name] = {
                         "count": len(filtered_compilers),
                         "compilers": [
-                            format_compiler_info(comp, ids_only, include_overrides, include_runtime_tools, include_compile_tools)
+                            format_compiler_info(
+                                comp,
+                                ids_only,
+                                include_overrides,
+                                include_runtime_tools,
+                                include_compile_tools,
+                            )
                             for comp in filtered_compilers
                         ],
                     }
 
             # Update summary with final counts
-            result["summary"].update({
-                "total_experimental": sum(
-                    len(cat_data["compilers"]) for cat_data in result["categories"].values()
-                ),
-                "categories_found": len(result["categories"]),
-                "filter_used": search_text,
-            })
+            result["summary"].update(
+                {
+                    "total_experimental": sum(
+                        len(cat_data["compilers"])
+                        for cat_data in result["categories"].values()
+                    ),
+                    "categories_found": len(result["categories"]),
+                    "filter_used": search_text,
+                }
+            )
 
         else:
             # Apply text filter to experimental compilers
-            filtered_experimental = apply_text_filter(experimental_compilers, search_text, exact_search)
+            filtered_experimental = apply_text_filter(
+                experimental_compilers, search_text, exact_search
+            )
 
             # Return filtered results
             result = {
@@ -1115,10 +1116,26 @@ async def find_compilers(
                     "filter_used": proposal or feature or category or search_text,
                 },
                 "compilers": [
-                    {
-                        **format_compiler_info(comp, ids_only, include_overrides, include_runtime_tools, include_compile_tools),
-                        "category": comp.category,
-                    } if not ids_only else format_compiler_info(comp, ids_only, include_overrides, include_runtime_tools, include_compile_tools)
+                    (
+                        {
+                            **cast(Dict[str, Any], format_compiler_info(
+                                comp,
+                                False,  # ids_only=False for dict unpacking
+                                include_overrides,
+                                include_runtime_tools,
+                                include_compile_tools,
+                            )),
+                            "category": comp.category,
+                        }
+                        if not ids_only
+                        else format_compiler_info(
+                            comp,
+                            True,  # ids_only=True for string return
+                            include_overrides,
+                            include_runtime_tools,
+                            include_compile_tools,
+                        )
+                    )
                     for comp in filtered_experimental
                 ],
             }
@@ -1128,7 +1145,11 @@ async def find_compilers(
             # Get example compilers from the results
             example_compilers = []
             if "compilers" in result:
-                example_compilers = [comp["id"] for comp in result["compilers"][:3] if isinstance(comp, dict)]
+                example_compilers = [
+                    comp["id"]
+                    for comp in result["compilers"][:3]
+                    if isinstance(comp, dict)
+                ]
             elif "categories" in result:
                 for cat_data in result["categories"].values():
                     for comp in cat_data["compilers"][:3]:
@@ -1167,14 +1188,14 @@ async def get_libraries_list(
             "language": language,
             "search_text": search_text,
             "count": len(libraries),
-            "libraries": libraries
+            "libraries": libraries,
         }
 
     except Exception as e:
         return {
             "error": f"Failed to get libraries: {str(e)}",
             "language": language,
-            "search_text": search_text
+            "search_text": search_text,
         }
 
     finally:
@@ -1189,10 +1210,7 @@ async def get_library_details_info(
     library_id = arguments.get("library_id")
 
     if not library_id:
-        return {
-            "error": "library_id parameter is required",
-            "language": language
-        }
+        return {"error": "library_id parameter is required", "language": language}
 
     client = CompilerExplorerClient(config)
 
@@ -1203,20 +1221,16 @@ async def get_library_details_info(
             return {
                 "error": f"Library '{library_id}' not found for language '{language}'",
                 "language": language,
-                "library_id": library_id
+                "library_id": library_id,
             }
 
-        return {
-            "language": language,
-            "library_id": library_id,
-            "library": library
-        }
+        return {"language": language, "library_id": library_id, "library": library}
 
     except Exception as e:
         return {
             "error": f"Failed to get library details: {str(e)}",
             "language": language,
-            "library_id": library_id
+            "library_id": library_id,
         }
 
     finally:

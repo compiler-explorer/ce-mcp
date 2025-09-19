@@ -68,11 +68,12 @@ class CompilerExplorerClient:
         if self.session and not self._closed:
             # Issue a warning instead of trying to close in __del__
             import warnings
+
             warnings.warn(
                 "CompilerExplorerClient was not properly closed. "
                 "Please call await client.close() in your code.",
                 ResourceWarning,
-                stacklevel=2
+                stacklevel=2,
             )
 
     async def compile(
@@ -224,7 +225,7 @@ class CompilerExplorerClient:
                     "trim": self.config.filters.trim,
                     "debugCalls": self.config.filters.debugCalls,
                 },
-                "tools": tools or [],
+                "tools": [],
                 "libraries": libraries or [],
             },
         }
@@ -357,16 +358,15 @@ class CompilerExplorerClient:
             logger.error(f"Failed to get libraries: {e}")
             raise
 
-    async def get_libraries_list(self, language: str, search_text: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def get_libraries_list(
+        self, language: str, search_text: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """Get simplified list of libraries (id and name only) with optional search."""
         full_libraries = await self.get_libraries(language)
 
         # Filter to only include id and name
         simplified_libraries = [
-            {
-                "id": lib.get("id", ""),
-                "name": lib.get("name", "")
-            }
+            {"id": lib.get("id", ""), "name": lib.get("name", "")}
             for lib in full_libraries
         ]
 
@@ -374,14 +374,19 @@ class CompilerExplorerClient:
         if search_text:
             search_lower = search_text.lower()
             simplified_libraries = [
-                lib for lib in simplified_libraries
-                if (search_lower in lib["id"].lower() or
-                    search_lower in lib["name"].lower())
+                lib
+                for lib in simplified_libraries
+                if (
+                    search_lower in lib["id"].lower()
+                    or search_lower in lib["name"].lower()
+                )
             ]
 
         return simplified_libraries
 
-    async def get_library_details(self, language: str, library_id: str) -> Optional[Dict[str, Any]]:
+    async def get_library_details(
+        self, language: str, library_id: str
+    ) -> Optional[Dict[str, Any]]:
         """Get detailed information for a specific library."""
         full_libraries = await self.get_libraries(language)
 
@@ -401,16 +406,13 @@ class CompilerExplorerClient:
             "name": target_library.get("name", ""),
             "url": target_library.get("url", ""),
             "description": target_library.get("description", ""),
-            "versions": []
+            "versions": [],
         }
 
         # Filter versions to only include version and id
         if "versions" in target_library:
             filtered_library["versions"] = [
-                {
-                    "id": version.get("id", ""),
-                    "version": version.get("version", "")
-                }
+                {"id": version.get("id", ""), "version": version.get("version", "")}
                 for version in target_library["versions"]
                 if isinstance(version, dict)
             ]

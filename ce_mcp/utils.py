@@ -1,7 +1,7 @@
 """Utility functions for Compiler Explorer MCP."""
 
 import re
-from typing import Optional
+from typing import Optional, List, Dict, Any, Union
 
 
 def extract_compile_args_from_source(source_code: str, language: str) -> Optional[str]:
@@ -129,3 +129,65 @@ def parse_execution_result(exec_result: dict) -> dict:
         "buildResult": exec_result.get("buildResult", {}),
         "execTime": exec_result.get("execTime", 0),
     }
+
+
+def apply_text_filter(compilers_list: List[Any], search_text: Optional[str], exact_search: bool = False) -> List[Any]:
+    """Filter compilers by search text in names and IDs."""
+    if not search_text:
+        return compilers_list
+
+    if exact_search:
+        # Exact match on compiler ID (case-sensitive)
+        return [comp for comp in compilers_list if comp.id == search_text]
+    else:
+        # Partial match on names and IDs (case-insensitive)
+        search_lower = search_text.lower()
+        return [
+            comp
+            for comp in compilers_list
+            if search_lower in comp.id.lower() or search_lower in comp.name.lower()
+        ]
+
+
+def format_compiler_info(
+    comp: Any,
+    ids_only: bool = False,
+    include_overrides: bool = False,
+    include_runtime_tools: bool = False,
+    include_compile_tools: bool = False,
+) -> Union[str, Dict[str, Any]]:
+    """Format compiler info with optional ids_only mode, overrides, and tools."""
+    if ids_only:
+        return str(comp.id)
+
+    info = {
+        "id": comp.id,
+        "name": comp.name,
+        "proposals": comp.proposal_numbers,
+        "features": comp.features,
+        "is_nightly": comp.is_nightly,
+        "description": comp.description,
+        "version_info": comp.version_info,
+        "modified": comp.modified,
+    }
+
+    # Add possibleOverrides if requested and available
+    if include_overrides and hasattr(comp, "possible_overrides"):
+        info["possible_overrides"] = comp.possible_overrides
+
+    # Add possibleRuntimeTools if requested and available
+    if include_runtime_tools and hasattr(comp, "possible_runtime_tools"):
+        info["possible_runtime_tools"] = comp.possible_runtime_tools
+
+    # Add tools (compile-time tools) if requested and available
+    if include_compile_tools and hasattr(comp, "tools"):
+        if isinstance(comp.tools, dict):
+            info["tools"] = {
+                tool_id: {"id": tool_data["id"], "name": tool_data["tool"]["name"]}
+                for tool_id, tool_data in comp.tools.items()
+            }
+        else:
+            # Handle case where tools is a list
+            info["tools"] = comp.tools
+
+    return info

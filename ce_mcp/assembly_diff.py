@@ -307,5 +307,3 @@ def generate_diff_summary(
             summary_parts.append(f"Removed function calls: {', '.join(removed_calls)}")
 
     return " | ".join(summary_parts)
-
-
