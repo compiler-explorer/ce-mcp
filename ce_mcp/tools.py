@@ -258,6 +258,8 @@ async def compile_check(arguments: Dict[str, Any], config: Config) -> Dict[str, 
     options = arguments.get("options", "")
     extract_args = arguments.get("extract_args", True)
     libraries = arguments.get("libraries")
+    create_binary = arguments.get("create_binary", False)
+    create_object_only = arguments.get("create_object_only", False)
 
     if extract_args:
         extracted_args = extract_compile_args_from_source(source, language)
@@ -285,7 +287,21 @@ async def compile_check(arguments: Dict[str, Any], config: Config) -> Dict[str, 
                         raise LibraryError(enhanced_error)
                 raise
 
-        result = await client.compile(source, language, compiler, options, libraries=resolved_libraries)
+        # Build filter overrides for binary creation
+        filter_overrides = {}
+        if create_binary:
+            filter_overrides["binary"] = True
+        if create_object_only:
+            filter_overrides["binaryObject"] = True
+
+        result = await client.compile(
+            source,
+            language,
+            compiler,
+            options,
+            libraries=resolved_libraries,
+            filter_overrides=filter_overrides if filter_overrides else None
+        )
     finally:
         await client.close()
 
@@ -312,6 +328,8 @@ async def compile_and_run(arguments: Dict[str, Any], config: Config) -> Dict[str
     timeout = arguments.get("timeout", 5000)
     libraries = arguments.get("libraries")
     tools = arguments.get("tools")
+    create_binary = arguments.get("create_binary", False)
+    create_object_only = arguments.get("create_object_only", False)
 
     client = CompilerExplorerClient(config)
 
@@ -340,6 +358,13 @@ async def compile_and_run(arguments: Dict[str, Any], config: Config) -> Dict[str
         if tools:
             validated_tools, tool_warnings = await validate_tools_for_compiler(tools, compiler, language, client)
 
+        # Build filter overrides for binary creation
+        filter_overrides = {}
+        if create_binary:
+            filter_overrides["binary"] = True
+        if create_object_only:
+            filter_overrides["binaryObject"] = True
+
         result = await client.compile_and_execute(
             source,
             language,
@@ -350,6 +375,7 @@ async def compile_and_run(arguments: Dict[str, Any], config: Config) -> Dict[str
             timeout,
             resolved_libraries,
             validated_tools,
+            filter_overrides=filter_overrides if filter_overrides else None,
         )
     finally:
         await client.close()
@@ -408,6 +434,8 @@ async def compile_with_diagnostics(arguments: Dict[str, Any], config: Config) ->
     diagnostic_level = arguments.get("diagnostic_level", "normal")
     libraries = arguments.get("libraries")
     tools = arguments.get("tools")
+    create_binary = arguments.get("create_binary", False)
+    create_object_only = arguments.get("create_object_only", False)
 
     if diagnostic_level == "verbose":
         options = f"{options} -Wall -Wextra -Wpedantic".strip()
@@ -441,6 +469,13 @@ async def compile_with_diagnostics(arguments: Dict[str, Any], config: Config) ->
         if tools:
             validated_tools, tool_warnings = await validate_tools_for_compiler(tools, compiler, language, client)
 
+        # Build filter overrides for binary creation
+        filter_overrides = {}
+        if create_binary:
+            filter_overrides["binary"] = True
+        if create_object_only:
+            filter_overrides["binaryObject"] = True
+
         result = await client.compile(
             source,
             language,
@@ -448,6 +483,7 @@ async def compile_with_diagnostics(arguments: Dict[str, Any], config: Config) ->
             options,
             libraries=resolved_libraries,
             tools=validated_tools,
+            filter_overrides=filter_overrides if filter_overrides else None,
         )
     finally:
         await client.close()

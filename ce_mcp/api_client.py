@@ -189,6 +189,7 @@ class CompilerExplorerClient:
         timeout: int = 5000,
         libraries: List[Dict[str, str]] | None = None,
         tools: List[Dict[str, Any]] | None = None,
+        filter_overrides: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """Compile and execute source code."""
         session = await self._get_session()
@@ -207,16 +208,56 @@ class CompilerExplorerClient:
                 },
                 "filters": {
                     "execute": True,
-                    "binary": False,
-                    "binaryObject": False,
-                    "commentOnly": self.config.filters.commentOnly,
-                    "demangle": self.config.filters.demangle,
-                    "directives": self.config.filters.directives,
-                    "intel": self.config.filters.intel,
-                    "labels": self.config.filters.labels,
-                    "libraryCode": self.config.filters.libraryCode,
-                    "trim": self.config.filters.trim,
-                    "debugCalls": self.config.filters.debugCalls,
+                    "binary": (
+                        filter_overrides.get("binary", self.config.filters.binary)
+                        if filter_overrides
+                        else self.config.filters.binary
+                    ),
+                    "binaryObject": (
+                        filter_overrides.get("binaryObject", self.config.filters.binaryObject)
+                        if filter_overrides
+                        else self.config.filters.binaryObject
+                    ),
+                    "commentOnly": (
+                        filter_overrides.get("commentOnly", self.config.filters.commentOnly)
+                        if filter_overrides
+                        else self.config.filters.commentOnly
+                    ),
+                    "demangle": (
+                        filter_overrides.get("demangle", self.config.filters.demangle)
+                        if filter_overrides
+                        else self.config.filters.demangle
+                    ),
+                    "directives": (
+                        filter_overrides.get("directives", self.config.filters.directives)
+                        if filter_overrides
+                        else self.config.filters.directives
+                    ),
+                    "intel": (
+                        filter_overrides.get("intel", self.config.filters.intel)
+                        if filter_overrides
+                        else self.config.filters.intel
+                    ),
+                    "labels": (
+                        filter_overrides.get("labels", self.config.filters.labels)
+                        if filter_overrides
+                        else self.config.filters.labels
+                    ),
+                    "libraryCode": (
+                        filter_overrides.get("libraryCode", self.config.filters.libraryCode)
+                        if filter_overrides
+                        else self.config.filters.libraryCode
+                    ),
+                    "trim": (
+                        filter_overrides.get("trim", self.config.filters.trim)
+                        if filter_overrides
+                        else self.config.filters.trim
+                    ),
+                    "debugCalls": (
+                        filter_overrides.get("debugCalls", self.config.filters.debugCalls)
+                        if filter_overrides
+                        else self.config.filters.debugCalls
+                    ),
                 },
                 "tools": tools or [],
                 "libraries": libraries or [],

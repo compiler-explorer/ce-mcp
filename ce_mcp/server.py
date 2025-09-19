@@ -35,6 +35,8 @@ async def compile_check_tool(
     options: str = "",
     extract_args: bool = True,
     libraries: list | None = None,
+    create_binary: bool = False,
+    create_object_only: bool = False,
 ) -> str:
     """Quick compilation validation - checks if code compiles without verbose output.
 
@@ -56,6 +58,8 @@ async def compile_check_tool(
     - options: Compiler flags (e.g., "-O2 -Wall", "-std=c++20")
     - extract_args: If True, extracts compiler flags from source comments like "// flags: -Wall"
     - libraries: List of libraries with format [{"id": "library_name", "version": "latest"}]
+    - create_binary: If True, creates a full executable binary (enables binary analysis tools like ldd)
+    - create_object_only: If True, creates object file without linking (for code without main function)
 
     **Returns JSON with:**
     - success: Boolean indicating if compilation succeeded
@@ -108,6 +112,8 @@ async def compile_check_tool(
             "options": options,
             "extract_args": extract_args,
             "libraries": libraries,
+            "create_binary": create_binary,
+            "create_object_only": create_object_only,
         },
         config,
     )
@@ -125,6 +131,8 @@ async def compile_and_run_tool(
     timeout: int = 5000,
     libraries: list | None = None,
     tools: list | None = None,
+    create_binary: bool = False,
+    create_object_only: bool = False,
 ) -> str:
     """Compile and run code, returning execution results and program output.
 
@@ -149,6 +157,8 @@ async def compile_and_run_tool(
     - args: Command line arguments passed to the program (list of strings)
     - timeout: Maximum execution time in milliseconds (default: 5000ms)
     - libraries: List of libraries with format [{"id": "library_name", "version": "latest"}]
+    - create_binary: If True, creates a full executable binary (enables binary analysis tools like ldd)
+    - create_object_only: If True, creates object file without linking (for code without main function)
 
     **Returns JSON with:**
     - compiled: Boolean indicating if compilation succeeded
@@ -219,6 +229,8 @@ async def compile_and_run_tool(
             "timeout": timeout,
             "libraries": libraries,
             "tools": tools,
+            "create_binary": create_binary,
+            "create_object_only": create_object_only,
         },
         config,
     )
@@ -234,6 +246,8 @@ async def compile_with_diagnostics_tool(
     diagnostic_level: str = "normal",
     libraries: list | None = None,
     tools: list | None = None,
+    create_binary: bool = False,
+    create_object_only: bool = False,
 ) -> str:
     """Get comprehensive compilation warnings and errors with detailed analysis.
 
@@ -259,6 +273,8 @@ async def compile_with_diagnostics_tool(
       - "verbose": Comprehensive warnings with -Wall -Wextra -Wpedantic
     - libraries: List of libraries with format [{"id": "library_name", "version": "latest"}]
     - tools: List of tools to run alongside compilation (e.g., [{"id": "iwyu022", "args": []}])
+    - create_binary: If True, creates a full executable binary (enables binary analysis tools like ldd)
+    - create_object_only: If True, creates object file without linking (for code without main function)
 
     **Returns JSON with:**
     - success: Boolean indicating if compilation succeeded
@@ -329,6 +345,8 @@ async def compile_with_diagnostics_tool(
             "diagnostic_level": diagnostic_level,
             "libraries": libraries,
             "tools": tools,
+            "create_binary": create_binary,
+            "create_object_only": create_object_only,
         },
         config,
     )
