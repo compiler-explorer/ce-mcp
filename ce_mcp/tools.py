@@ -1092,6 +1092,9 @@ async def generate_share_url(arguments: Dict[str, Any], config: Config) -> Dict[
     options = arguments.get("options", "")
     layout = arguments.get("layout", "simple")
     libraries = arguments.get("libraries")
+    tools = arguments.get("tools")
+    create_binary = arguments.get("create_binary", False)
+    create_object_only = arguments.get("create_object_only", False)
 
     client = CompilerExplorerClient(config)
 
@@ -1114,7 +1117,22 @@ async def generate_share_url(arguments: Dict[str, Any], config: Config) -> Dict[
                         raise LibraryError(enhanced_error)
                 raise
 
-        url = await client.create_short_link(source, language, compiler, options, layout, resolved_libraries)
+        # Validate tools if provided
+        validated_tools = tools
+        if tools:
+            validated_tools, _ = await validate_tools_for_compiler(tools, compiler, language, client)
+
+        url = await client.create_short_link(
+            source,
+            language,
+            compiler,
+            options,
+            layout,
+            resolved_libraries,
+            validated_tools,
+            create_binary,
+            create_object_only,
+        )
     finally:
         await client.close()
 

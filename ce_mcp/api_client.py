@@ -282,6 +282,9 @@ class CompilerExplorerClient:
         options: str = "",
         layout: str = "simple",
         libraries: List[Dict[str, str]] | None = None,
+        tools: List[Dict[str, Any]] | None = None,
+        create_binary: bool = False,
+        create_object_only: bool = False,
     ) -> str:
         """Create a short link for sharing."""
         session = await self._get_session()
@@ -293,6 +296,17 @@ class CompilerExplorerClient:
         }
         if libraries:
             compiler_config["libs"] = libraries
+        if tools:
+            compiler_config["tools"] = tools
+
+        # Add binary/linking filters if specified
+        if create_binary or create_object_only:
+            filters = {}
+            if create_binary:
+                filters["binary"] = True
+            if create_object_only:
+                filters["binaryObject"] = True
+            compiler_config["filters"] = filters
 
         session_config = {
             "sessions": [

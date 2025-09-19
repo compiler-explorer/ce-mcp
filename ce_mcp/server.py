@@ -525,6 +525,9 @@ async def generate_share_url_tool(
     options: str = "",
     layout: str = "simple",
     libraries: list | None = None,
+    tools: list | None = None,
+    create_binary: bool = False,
+    create_object_only: bool = False,
 ) -> str:
     """Generate shareable Compiler Explorer URLs for collaboration and demonstration.
 
@@ -550,6 +553,9 @@ async def generate_share_url_tool(
       - "comparison": Side-by-side compiler comparison view
       - "assembly": Focus on assembly output view
     - libraries: List of libraries with format [{"id": "library_name", "version": "latest"}]
+    - tools: List of tools with format [{"id": "tool_name", "args": []}]
+    - create_binary: If True, creates a full executable binary (enables binary analysis tools like ldd)
+    - create_object_only: If True, creates object file without linking (for code without main function)
 
     **Returns JSON with:**
     - url: Shareable Compiler Explorer URL with all settings pre-loaded
@@ -599,6 +605,28 @@ async def generate_share_url_tool(
     })
     ```
 
+    Example with tools:
+    ```
+    generate_share_url_tool({
+        "source": "int square(int n) { return n * n; }\\nint main() { return square(2); }",
+        "language": "c++",
+        "compiler": "g132",
+        "options": "-fvisibility=hidden",
+        "tools": [{"id": "readelf", "args": ["-s"]}]
+    })
+    ```
+
+    Example with binary creation:
+    ```
+    generate_share_url_tool({
+        "source": "int main() { return 42; }",
+        "language": "c++",
+        "compiler": "g132",
+        "options": "-O2",
+        "create_binary": True
+    })
+    ```
+
     **When to use vs other tools:**
     - Use generate_share_url_tool to create shareable links for collaboration
     - Use compile_and_run_tool to test and validate code behavior first
@@ -613,6 +641,9 @@ async def generate_share_url_tool(
             "options": options,
             "layout": layout,
             "libraries": libraries,
+            "tools": tools,
+            "create_binary": create_binary,
+            "create_object_only": create_object_only,
         },
         config,
     )
