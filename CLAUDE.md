@@ -6,7 +6,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 Compiler Explorer MCP server - provides an MCP interface to Compiler Explorer (godbolt.org) for code compilation, analysis, and comparison across multiple languages and compilers.
 
-**Status**: 85% complete - See `IMPLEMENTATION_STATUS.md` for details.
+**Status**: Production ready with 12 fully implemented MCP tools.
 
 ## Development Commands
 
@@ -58,7 +58,7 @@ ce-mcp --verbose                          # Debug mode
 - Library discovery with token-efficient filtering (id/name for lists, full details on demand)
 - Search capability across library names and IDs
 
-See `IMPLEMENTATION_STATUS.md` for complete status and `ADDITIONAL_TOOLS_PROPOSAL.md` for expansion ideas.
+All 12 MCP tools are fully implemented and tested.
 
 ## Configuration
 
