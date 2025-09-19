@@ -300,7 +300,7 @@ async def compile_check(arguments: Dict[str, Any], config: Config) -> Dict[str, 
             compiler,
             options,
             libraries=resolved_libraries,
-            filter_overrides=filter_overrides if filter_overrides else None
+            filter_overrides=filter_overrides if filter_overrides else None,
         )
     finally:
         await client.close()
