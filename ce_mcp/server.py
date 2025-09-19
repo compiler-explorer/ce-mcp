@@ -18,6 +18,7 @@ from .tools import (
     get_languages_list,
     get_libraries_list,
     get_library_details_info,
+    lookup_instruction,
 )
 
 logger = logging.getLogger(__name__)
@@ -788,6 +789,102 @@ async def get_languages_tool(
     result = await get_languages_list(
         {
             "search_text": search_text,
+        },
+        config,
+    )
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+async def lookup_instruction_tool(
+    instruction_set: str,
+    opcode: str,
+    format_output: bool = True,
+) -> str:
+    """Get detailed documentation for assembly instructions/opcodes.
+
+    This tool provides comprehensive documentation for assembly instructions across
+    multiple architectures. Perfect for understanding instruction behavior, syntax,
+    and usage during assembly analysis or debugging.
+
+    **Use Cases:**
+    - **Assembly analysis**: Understand what specific instructions do
+    - **Debugging**: Quick reference for instruction behavior
+    - **Learning**: Explore instruction sets and their capabilities
+    - **Code review**: Verify instruction usage and semantics
+
+    **Parameters:**
+    - instruction_set: Architecture/instruction set name
+      - x86/x86-64: "amd64", "x86", "x86_64", "x64", "intel"
+      - ARM: "aarch64", "arm64", "armv8", "arm"
+      - Others: "mips", "riscv", "powerpc" (if supported)
+    - opcode: Instruction/opcode to look up (e.g., "pop", "stp", "mov", "add")
+    - format_output: Format for readability (true) vs raw JSON (false)
+
+    **Returns JSON with:**
+    - found: Boolean indicating if instruction was found
+    - instruction_set: Resolved instruction set name
+    - opcode: The looked up instruction
+    - documentation: Raw instruction documentation from Compiler Explorer
+    - formatted_docs: Human-readable formatted documentation (if format_output=true)
+    - error: Error message if lookup failed
+
+    **Example Tool Calls:**
+
+    Look up x86-64 POP instruction:
+    ```
+    lookup_instruction_tool({
+        "instruction_set": "amd64",
+        "opcode": "pop"
+    })
+    ```
+
+    Look up ARM64 STP instruction:
+    ```
+    lookup_instruction_tool({
+        "instruction_set": "aarch64",
+        "opcode": "stp"
+    })
+    ```
+
+    Using instruction set aliases:
+    ```
+    lookup_instruction_tool({
+        "instruction_set": "arm64",  # resolves to aarch64
+        "opcode": "ldr"
+    })
+    ```
+
+    Get raw JSON for programmatic use:
+    ```
+    lookup_instruction_tool({
+        "instruction_set": "amd64",
+        "opcode": "mov",
+        "format_output": false
+    })
+    ```
+
+    **Supported Architectures:**
+    - **x86/x86-64**: Comprehensive Intel/AMD instruction documentation
+    - **ARM64**: ARMv8 AArch64 instruction set
+    - **Additional**: Other architectures as supported by Compiler Explorer
+
+    **Smart Features:**
+    - **Alias resolution**: Automatically maps common aliases (x64→amd64, arm64→aarch64)
+    - **Case insensitive**: Works with any case for instruction names
+    - **Fallback handling**: Tries both resolved and original instruction set names
+    - **Formatted output**: Clean, readable documentation optimized for AI workflows
+
+    **When to use vs other tools:**
+    - Use lookup_instruction_tool for assembly instruction documentation
+    - Use analyze_optimization_tool to see how compilers generate assembly
+    - Use compile_and_run_tool to test code that uses specific instructions
+    """
+    result = await lookup_instruction(
+        {
+            "instruction_set": instruction_set,
+            "opcode": opcode,
+            "format_output": format_output,
         },
         config,
     )

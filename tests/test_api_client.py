@@ -177,3 +177,42 @@ class TestCompilerExplorerClient:
         # Close session
         await client.close()
         assert client.session is None
+
+    @pytest.mark.asyncio
+    async def test_get_instruction_docs_success(self, client, mock_api):
+        """Test fetching instruction documentation successfully."""
+        mock_docs = {
+            "tooltip": "Pop a Value from the Stack",
+            "forms": [
+                {"gas": "pop %r16", "att": "pop %r16"},
+                {"gas": "pop %r32", "att": "pop %r32"},
+            ],
+            "operation": "Loads the value from the top of the stack...",
+        }
+
+        mock_api.get(
+            "https://godbolt.org/api/asm/amd64/pop",
+            payload=mock_docs,
+        )
+
+        result = await client.get_instruction_docs("amd64", "pop")
+
+        assert result["found"] is True
+        assert result["instruction_set"] == "amd64"
+        assert result["opcode"] == "pop"
+        assert result["documentation"] == mock_docs
+
+    @pytest.mark.asyncio
+    async def test_get_instruction_docs_not_found(self, client, mock_api):
+        """Test instruction not found (404)."""
+        mock_api.get(
+            "https://godbolt.org/api/asm/amd64/nonexistent",
+            status=404,
+        )
+
+        result = await client.get_instruction_docs("amd64", "nonexistent")
+
+        assert result["found"] is False
+        assert "not found" in result["error"]
+        assert result["instruction_set"] == "amd64"
+        assert result["opcode"] == "nonexistent"

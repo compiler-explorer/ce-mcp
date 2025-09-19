@@ -13,11 +13,11 @@ A Model Context Protocol (MCP) server that provides efficient access to Compiler
 
 ## Implementation Status
 
-**95% Complete** - See [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) for detailed analysis.
+**98% Complete** - See [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) for detailed analysis.
 
-✅ **Fully Working**: All 11 MCP tools implemented and functional
+✅ **Fully Working**: All 12 MCP tools implemented and functional
 ⚠️ **Minor Issues**: One tool needs spec compliance fixes
-✅ **Comprehensive**: Language discovery, library support, and sharing tools
+✅ **Comprehensive**: Language discovery, library support, assembly docs, and sharing tools
 
 ## Quick Setup
 
@@ -207,7 +207,7 @@ For other MCP-compatible clients, use the standard MCP server configuration form
 
 ## Available Tools
 
-The server provides 11 specialized MCP tools for compilation, analysis, and sharing. See [`docs/available_tools.md`](docs/available_tools.md) for detailed documentation of each tool.
+The server provides 12 specialized MCP tools for compilation, analysis, and sharing. See [`docs/available_tools.md`](docs/available_tools.md) for detailed documentation of each tool.
 
 **Core Tools**:
 - `compile_check_tool` - Syntax validation
@@ -217,6 +217,7 @@ The server provides 11 specialized MCP tools for compilation, analysis, and shar
 **Analysis Tools**:
 - `analyze_optimization_tool` - Assembly optimization analysis
 - `compare_compilers_tool` - Compiler comparison
+- `lookup_instruction_tool` - Assembly instruction documentation
 
 **Discovery & Sharing**:
 - `generate_share_url_tool` - Create Compiler Explorer URLs

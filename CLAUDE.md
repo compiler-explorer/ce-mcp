@@ -43,7 +43,8 @@ ce-mcp --verbose                          # Debug mode
 8. **get_libraries_tool** - Get simplified list of available libraries with search
 9. **get_library_details_tool** - Get detailed library information including versions
 10. **get_languages_tool** - Get supported languages with id, name and extensions only
-11. **download_shortlink_tool** - Download and save source code from Compiler Explorer shortlinks to local files
+11. **lookup_instruction_tool** - Get detailed documentation for assembly instructions/opcodes
+12. **download_shortlink_tool** - Download and save source code from Compiler Explorer shortlinks to local files
 
 ## Key Implementation Notes
 

@@ -14,7 +14,10 @@ from ce_mcp.tools import (
     compile_with_diagnostics,
     download_shortlink,
     extract_compiler_suggestion,
+    format_instruction_docs,
     generate_share_url,
+    lookup_instruction,
+    resolve_instruction_set,
     validate_tools_for_compiler,
 )
 
@@ -1208,3 +1211,168 @@ int main() { return 0; }"""
 
             assert "error" in result
             assert "No source code found" in result["error"]
+
+    def test_resolve_instruction_set(self):
+        """Test instruction set alias resolution."""
+        assert resolve_instruction_set("x86_64") == "amd64"
+        assert resolve_instruction_set("x64") == "amd64"
+        assert resolve_instruction_set("arm64") == "aarch64"
+        assert resolve_instruction_set("intel") == "amd64"
+        assert resolve_instruction_set("amd64") == "amd64"  # No change needed
+        assert resolve_instruction_set("unknown") == "unknown"  # Unknown passes through
+
+    def test_format_instruction_docs(self):
+        """Test instruction documentation formatting."""
+        # Test with not found
+        not_found_data = {"found": False, "error": "Instruction not found"}
+        formatted = format_instruction_docs(not_found_data)
+        assert "❌" in formatted
+        assert "Instruction not found" in formatted
+
+        # Test with valid documentation
+        docs_data = {
+            "found": True,
+            "instruction_set": "amd64",
+            "opcode": "pop",
+            "documentation": {
+                "tooltip": "Pop a Value from the Stack",
+                "forms": [
+                    {"gas": "pop %r16", "att": "pop %r16"},
+                    {"gas": "pop %r32", "att": "pop %r32"},
+                ],
+                "operation": "Loads the value from the top of the stack",
+                "flags": "None",
+                "encoding": "8F /0",
+            },
+        }
+
+        formatted = format_instruction_docs(docs_data)
+        assert "## POP - AMD64 Instruction" in formatted
+        assert "**Description**: Pop a Value from the Stack" in formatted
+        assert "**Syntax**:" in formatted
+        assert "`pop %r16`" in formatted
+        assert "**Operation**:" in formatted
+        assert "**Flags Affected**: None" in formatted
+        assert "**Encoding**: 8F /0" in formatted
+
+    @pytest.mark.asyncio
+    async def test_lookup_instruction_success(self, config, mock_client):
+        """Test successful instruction lookup."""
+        mock_docs = {
+            "tooltip": "Pop a Value from the Stack",
+            "forms": [{"gas": "pop %r16"}],
+            "operation": "Loads the value from the top of the stack",
+        }
+
+        mock_client.get_instruction_docs.return_value = {
+            "found": True,
+            "instruction_set": "amd64",
+            "opcode": "pop",
+            "documentation": mock_docs,
+        }
+
+        result = await lookup_instruction(
+            {
+                "instruction_set": "amd64",
+                "opcode": "pop",
+                "format_output": True,
+            },
+            config,
+        )
+
+        assert result["found"] is True
+        assert result["instruction_set"] == "amd64"
+        assert result["opcode"] == "pop"
+        assert result["documentation"] == mock_docs
+        assert "formatted_docs" in result
+        assert "## POP - AMD64 Instruction" in result["formatted_docs"]
+
+    @pytest.mark.asyncio
+    async def test_lookup_instruction_with_alias(self, config, mock_client):
+        """Test instruction lookup with instruction set alias."""
+        mock_docs = {
+            "tooltip": "Store Pair of Registers",
+            "forms": [{"gas": "stp Wt1, Wt2, [Xn]"}],
+        }
+
+        mock_client.get_instruction_docs.return_value = {
+            "found": True,
+            "instruction_set": "aarch64",
+            "opcode": "stp",
+            "documentation": mock_docs,
+        }
+
+        result = await lookup_instruction(
+            {
+                "instruction_set": "arm64",  # Should resolve to aarch64
+                "opcode": "stp",
+                "format_output": True,
+            },
+            config,
+        )
+
+        assert result["found"] is True
+        assert result["original_instruction_set"] == "arm64"
+        assert result["resolved_instruction_set"] == "aarch64"
+        assert result["opcode"] == "stp"
+
+    @pytest.mark.asyncio
+    async def test_lookup_instruction_not_found(self, config, mock_client):
+        """Test instruction not found."""
+        mock_client.get_instruction_docs.return_value = {
+            "found": False,
+            "error": "Instruction 'invalid' not found for instruction set 'amd64'",
+            "instruction_set": "amd64",
+            "opcode": "invalid",
+        }
+
+        result = await lookup_instruction(
+            {
+                "instruction_set": "amd64",
+                "opcode": "invalid",
+                "format_output": True,
+            },
+            config,
+        )
+
+        assert result["found"] is False
+        assert "not found" in result["error"]
+        assert result["instruction_set"] == "amd64"
+        assert result["opcode"] == "invalid"
+
+    @pytest.mark.asyncio
+    async def test_lookup_instruction_missing_params(self, config):
+        """Test lookup instruction with missing parameters."""
+        # Missing instruction_set
+        result = await lookup_instruction({"opcode": "pop"}, config)
+        assert "error" in result
+        assert "instruction_set parameter is required" in result["error"]
+
+        # Missing opcode
+        result = await lookup_instruction({"instruction_set": "amd64"}, config)
+        assert "error" in result
+        assert "opcode parameter is required" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_lookup_instruction_raw_output(self, config, mock_client):
+        """Test instruction lookup with raw output (no formatting)."""
+        mock_docs = {"tooltip": "Pop instruction"}
+
+        mock_client.get_instruction_docs.return_value = {
+            "found": True,
+            "instruction_set": "amd64",
+            "opcode": "pop",
+            "documentation": mock_docs,
+        }
+
+        result = await lookup_instruction(
+            {
+                "instruction_set": "amd64",
+                "opcode": "pop",
+                "format_output": False,  # No formatting
+            },
+            config,
+        )
+
+        assert result["found"] is True
+        assert "formatted_docs" not in result  # Should not include formatted docs

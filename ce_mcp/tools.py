@@ -1553,3 +1553,125 @@ async def get_languages_list(arguments: Dict[str, Any], config: Config) -> Dict[
 
     finally:
         await client.close()
+
+
+# Instruction set aliases for smart resolution
+INSTRUCTION_SET_ALIASES = {
+    "x86_64": "amd64",
+    "x64": "amd64",
+    "x86-64": "amd64",
+    "intel": "amd64",
+    "arm64": "aarch64",
+    "armv8": "aarch64",
+    "arm": "aarch64",  # Assume ARM64 by default for modern usage
+}
+
+
+def resolve_instruction_set(instruction_set: str) -> str:
+    """Resolve instruction set aliases to canonical names."""
+    return INSTRUCTION_SET_ALIASES.get(instruction_set.lower(), instruction_set.lower())
+
+
+def format_instruction_docs(docs_data: Dict[str, Any]) -> str:
+    """Format instruction documentation for readable output."""
+    if not docs_data.get("found", False):
+        return f"❌ {docs_data.get('error', 'Documentation not found')}"
+
+    instruction_set = docs_data.get("instruction_set", "")
+    opcode = docs_data.get("opcode", "")
+    docs = docs_data.get("documentation", {})
+
+    # Start with header
+    formatted = f"## {opcode.upper()} - {instruction_set.upper()} Instruction\n\n"
+
+    # Add description if available
+    if "description" in docs:
+        formatted += f"**Description**: {docs['description']}\n\n"
+    elif "tooltip" in docs:
+        formatted += f"**Description**: {docs['tooltip']}\n\n"
+
+    # Add syntax/forms
+    if "forms" in docs and docs["forms"]:
+        formatted += "**Syntax**:\n"
+        for form in docs["forms"]:
+            if isinstance(form, dict):
+                if "gas" in form:
+                    formatted += f"- `{form['gas']}`\n"
+                elif "att" in form:
+                    formatted += f"- `{form['att']}`\n"
+                elif "intel" in form:
+                    formatted += f"- `{form['intel']}`\n"
+            else:
+                formatted += f"- `{form}`\n"
+        formatted += "\n"
+
+    # Add operation description
+    if "operation" in docs:
+        formatted += f"**Operation**:\n{docs['operation']}\n\n"
+
+    # Add flags affected
+    if "flags" in docs:
+        formatted += f"**Flags Affected**: {docs['flags']}\n\n"
+
+    # Add encoding information
+    if "encoding" in docs:
+        formatted += f"**Encoding**: {docs['encoding']}\n\n"
+
+    # Add exceptions
+    if "exceptions" in docs:
+        formatted += f"**Exceptions**: {docs['exceptions']}\n\n"
+
+    # Add any additional fields
+    for key, value in docs.items():
+        if key not in ["description", "tooltip", "forms", "operation", "flags", "encoding", "exceptions"]:
+            if isinstance(value, str) and value.strip():
+                formatted += f"**{key.title()}**: {value}\n\n"
+
+    return formatted.strip()
+
+
+async def lookup_instruction(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
+    """Look up assembly instruction documentation with smart instruction set handling."""
+    instruction_set = arguments.get("instruction_set", "").strip()
+    opcode = arguments.get("opcode", "").strip()
+    format_output = arguments.get("format_output", True)
+
+    if not instruction_set:
+        return {"error": "instruction_set parameter is required"}
+
+    if not opcode:
+        return {"error": "opcode parameter is required"}
+
+    # Resolve instruction set aliases
+    resolved_instruction_set = resolve_instruction_set(instruction_set)
+
+    client = CompilerExplorerClient(config)
+
+    try:
+        # Get instruction documentation
+        result = await client.get_instruction_docs(resolved_instruction_set, opcode.lower())
+
+        # If not found and we used an alias, try the original
+        if not result.get("found", False) and resolved_instruction_set != instruction_set.lower():
+            result = await client.get_instruction_docs(instruction_set.lower(), opcode.lower())
+
+        # Add formatted documentation if requested
+        if format_output and result.get("found", False):
+            result["formatted_docs"] = format_instruction_docs(result)
+
+        # Add original request info
+        result["original_instruction_set"] = instruction_set
+        result["resolved_instruction_set"] = resolved_instruction_set
+
+        return result
+
+    except Exception as e:
+        return {
+            "error": f"Failed to lookup instruction: {str(e)}",
+            "instruction_set": instruction_set,
+            "opcode": opcode,
+            "found": False,
+        }
+
+    finally:
+        await client.close()

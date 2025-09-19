@@ -1,6 +1,6 @@
 # Available Tools
 
-The Compiler Explorer MCP server provides 11 specialized tools for code compilation, analysis, and sharing. Each tool is optimized for specific use cases and provides token-efficient responses.
+The Compiler Explorer MCP server provides 12 specialized tools for code compilation, analysis, and sharing. Each tool is optimized for specific use cases and provides token-efficient responses.
 
 ## Core Compilation Tools
 
@@ -144,6 +144,27 @@ Returns a simplified list of supported programming languages with only essential
 - `search_text` - Filter languages by name/ID (optional)
 
 **Returns**: List of languages with id, name, and extensions fields only
+
+### lookup_instruction_tool
+**Purpose**: Get detailed documentation for assembly instructions/opcodes
+**Best for**: Assembly analysis, understanding instruction behavior, debugging assembly code
+
+Provides comprehensive documentation for assembly instructions across multiple architectures using Compiler Explorer's instruction documentation API.
+
+**Key Parameters**:
+- `instruction_set` - Architecture/instruction set name
+  - x86/x86-64: "amd64", "x86", "x86_64", "x64", "intel"
+  - ARM: "aarch64", "arm64", "armv8", "arm"
+  - Others: "mips", "riscv", "powerpc" (if supported)
+- `opcode` - Instruction/opcode to look up (e.g., "pop", "stp", "mov", "add")
+- `format_output` - Format for readability (true) vs raw JSON (false)
+
+**Returns**: Instruction documentation with syntax, operation details, flags affected, encoding, and formatted description
+
+**Smart Features**:
+- **Alias resolution**: Automatically maps common aliases (x64→amd64, arm64→aarch64)
+- **Multi-architecture support**: x86, ARM64, and other instruction sets
+- **Formatted output**: Clean, readable documentation optimized for AI workflows
 
 ## Additional Tools
 

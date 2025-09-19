@@ -503,3 +503,34 @@ class CompilerExplorerClient:
         except ClientError as e:
             logger.debug(f"Failed to get version for {compiler_id}: {e}")
             return {"error": str(e)}
+
+    async def get_instruction_docs(self, instruction_set: str, opcode: str) -> Dict[str, Any]:
+        """Get documentation for assembly instruction/opcode."""
+        session = await self._get_session()
+        url = f"{self.config.api.endpoint}/asm/{instruction_set}/{opcode}"
+
+        try:
+            async with session.get(url) as response:
+                if response.status == 404:
+                    return {
+                        "error": f"Instruction '{opcode}' not found for instruction set '{instruction_set}'",
+                        "instruction_set": instruction_set,
+                        "opcode": opcode,
+                        "found": False,
+                    }
+                response.raise_for_status()
+                result = await response.json()
+                return {
+                    "instruction_set": instruction_set,
+                    "opcode": opcode,
+                    "found": True,
+                    "documentation": result,
+                }  # type: ignore[no-any-return]
+        except ClientError as e:
+            logger.error(f"Failed to get instruction docs for {instruction_set}/{opcode}: {e}")
+            return {
+                "error": f"Failed to get instruction documentation: {str(e)}",
+                "instruction_set": instruction_set,
+                "opcode": opcode,
+                "found": False,
+            }
