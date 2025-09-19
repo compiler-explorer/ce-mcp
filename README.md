@@ -8,14 +8,7 @@ A Model Context Protocol (MCP) server that provides efficient access to Compiler
 - **Use-case driven tools** - Specific functions for common compilation scenarios
 - **Smart filtering** - Context-aware output filtering based on the task
 - **Comprehensive language support** - C++, C, Rust, Go, Python, and more
-- **Extensive test coverage** - Comprehensive unit and integration tests
 - **Claude Code integration** - Automated setup for Claude Code workflows
-
-## Features Overview
-
-✅ **12 MCP Tools**: All tools operational and production-ready
-✅ **Comprehensive**: Language discovery, library support, assembly docs, and sharing tools
-✅ **Well-tested**: Complete test coverage for all functionality
 
 ## Quick Start (Claude Code Users)
 
@@ -87,26 +80,6 @@ ce-mcp --config ~/.config/ce-mcp/config.yaml
 
 # With verbose logging
 ce-mcp --verbose
-```
-
-## MCP Client Integration
-
-### Claude Desktop
-
-To use this server with Claude Desktop, add it to your MCP configuration file:
-
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "compiler-explorer": {
-      "command": "ce-mcp",
-      "args": ["--verbose"]
-    }
-  }
-}
 ```
 
 
