@@ -207,32 +207,22 @@ For other MCP-compatible clients, use the standard MCP server configuration form
 
 ## Available Tools
 
-### compile_check
-Quick compilation validation - checks if code compiles without verbose output.
+The server provides 9 specialized MCP tools for compilation, analysis, and sharing. See [`docs/available_tools.md`](docs/available_tools.md) for detailed documentation of each tool.
 
-### compile_and_run
-Compile and run code, returning only execution results.
+**Core Tools**:
+- `compile_check_tool` - Syntax validation
+- `compile_and_run_tool` - Compile and execute
+- `compile_with_diagnostics_tool` - Error analysis
 
-### compile_with_diagnostics
-Get comprehensive compilation warnings and errors.
+**Analysis Tools**:
+- `analyze_optimization_tool` - Assembly optimization analysis
+- `compare_compilers_tool` - Compiler comparison
 
-### analyze_optimization
-Check compiler optimizations and assembly analysis.
-
-### compare_compilers
-Compare output across different compilers/options with detailed execution analysis and unified diff output.
-
-### generate_share_url
-Generate Compiler Explorer URLs for collaboration.
-
-### find_compilers
-Find compilers with optional filtering by experimental features, proposals, or tools. Includes options to discover runtime tools, compile-time tools, and architecture overrides.
-
-### get_libraries
-Get a simplified list of available libraries (id and name only) with optional search filtering.
-
-### get_library_details
-Get detailed information for a specific library including versions, description, and URL.
+**Sharing & Discovery**:
+- `generate_share_url_tool` - Create Compiler Explorer URLs
+- `find_compilers_tool` - Find compilers with filtering
+- `get_libraries_tool` - List available libraries
+- `get_library_details_tool` - Library information
 
 ## Configuration
 
