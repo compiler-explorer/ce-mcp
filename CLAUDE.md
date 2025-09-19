@@ -21,8 +21,8 @@ uv pip install -e ".[dev]"
 .venv/bin/pytest tests/ -m integration              # Integration tests
 
 # Code quality
-uv run black ce_mcp/ tests/               # Format
-uv run ruff check --fix ce_mcp/ tests/    # Lint
+uv run black ce_mcp/ tests/               # Format (120 char line length)
+isort ce_mcp/ tests/                      # Sort imports
 uv run mypy ce_mcp/                       # Type check
 
 # Run server
@@ -55,12 +55,6 @@ ce-mcp --verbose                          # Debug mode
 - Library discovery with token-efficient filtering (id/name for lists, full details on demand)
 - Search capability across library names and IDs
 
-## Priority Tasks
-
-1. **Implement caching system** - Missing core spec requirement
-2. **Fix diagnostics parsing** - Line/column extraction issues
-3. ~~**Enhance compiler comparisons** - Better difference analysis~~ ✓ **COMPLETED**
-
 See `IMPLEMENTATION_STATUS.md` for complete status and `ADDITIONAL_TOOLS_PROPOSAL.md` for expansion ideas.
 
 ## Configuration
@@ -73,6 +67,14 @@ Key settings:
 - Output filtering preferences
 - Compiler name mappings
 
+### Development Configuration
+
+**pyproject.toml** contains tool configurations:
+- **Black**: 120 character line length, Python 3.10+ target
+- **isort**: Black-compatible profile with 120 character line length
+- **mypy**: Strict type checking with untyped definition warnings
+- **pytest**: Async mode enabled, integration test markers
+
 ## Testing
 
 - 56 total tests (all passing)
@@ -80,3 +82,12 @@ Key settings:
 - Integration tests with real Compiler Explorer API
 - Focus on token efficiency and error handling
 - Comprehensive library tool testing
+
+## GitHub Actions CI/CD
+
+**.github/workflows/ci.yml** provides automated testing:
+- **Triggers**: Push/PR to main branch only
+- **test** job: Setup, formatting check, type checking, unit tests, integration tests, coverage
+- **lint-and-format** job: Code formatting validation and import sorting check
+- **UV package manager**: Fast dependency management with caching
+- **Coverage reporting**: Codecov integration for test coverage tracking
