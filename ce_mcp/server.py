@@ -342,6 +342,7 @@ async def analyze_optimization_tool(
     compiler: str,
     optimization_level: str = "-O3",
     analysis_type: str = "all",
+    include_optimization_remarks: bool = True,
     filter_out_library_code: bool | None = None,
     filter_out_debug_calls: bool | None = None,
     do_demangle: bool | None = None,
@@ -369,6 +370,7 @@ async def analyze_optimization_tool(
     - compiler: Compiler identifier (e.g., "g132", "clang1600") or friendly name
     - optimization_level: Optimization flags (e.g., "-O0", "-O2", "-O3", "-Os", "-Ofast")
     - analysis_type: Focus of analysis ("all", "vectorization", "inlining", "loops")
+    - include_optimization_remarks: Include compiler optimization remarks/passes in output
     - filter_out_library_code: Hide standard library implementations for cleaner output
     - filter_out_debug_calls: Hide debug and profiling function calls
     - do_demangle: Convert mangled C++ symbols to readable names
@@ -380,6 +382,7 @@ async def analyze_optimization_tool(
     - assembly_output: Complete assembly output (filtered based on settings)
     - truncated: Boolean indicating if assembly output was truncated
     - total_instructions: Total instruction count including truncated lines
+    - optimization_remarks: List of compiler optimization remarks (if include_optimization_remarks=True)
 
     **Assembly Analysis Examples:**
 
@@ -455,6 +458,7 @@ async def analyze_optimization_tool(
             "compiler": compiler,
             "optimization_level": optimization_level,
             "analysis_type": analysis_type,
+            "include_optimization_remarks": include_optimization_remarks,
             "filter_out_library_code": filter_out_library_code,
             "filter_out_debug_calls": filter_out_debug_calls,
             "do_demangle": do_demangle,

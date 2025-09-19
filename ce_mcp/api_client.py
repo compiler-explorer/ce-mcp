@@ -85,12 +85,15 @@ class CompilerExplorerClient:
         filter_overrides: Optional[Dict[str, bool]] = None,
         libraries: List[Dict[str, str]] | None = None,
         tools: List[Dict[str, Any]] | None = None,
+        produce_opt_info: bool = False,
     ) -> Dict[str, Any]:
         """Compile source code."""
         session = await self._get_session()
 
         payload = {
             "source": source,
+            "compiler": compiler,
+            "lang": language,
             "options": {
                 "userArguments": options,
                 "compilerOptions": {
@@ -101,7 +104,7 @@ class CompilerExplorerClient:
                     "produceGnatDebugTree": None,
                     "produceGnatDebug": None,
                     "produceIr": None,
-                    "produceOptInfo": None,
+                    "produceOptInfo": produce_opt_info,
                     "produceStackUsageInfo": None,
                     "produceCppCheck": None,
                     "produceDevice": None,

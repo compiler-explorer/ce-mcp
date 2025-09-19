@@ -418,6 +418,7 @@ async def analyze_optimization(arguments: Dict[str, Any], config: Config) -> Dic
     language = arguments["language"]
     compiler = config.resolve_compiler(arguments["compiler"])
     optimization_level = arguments.get("optimization_level", "-O3")
+    include_optimization_remarks = arguments.get("include_optimization_remarks", True)
     libraries = arguments.get("libraries")
 
     # Build filter overrides from user preferences
@@ -466,6 +467,7 @@ async def analyze_optimization(arguments: Dict[str, Any], config: Config) -> Dic
             get_assembly=True,
             filter_overrides=filter_overrides if filter_overrides else None,
             libraries=resolved_libraries,
+            produce_opt_info=True,
         )
     finally:
         await client.close()
@@ -495,13 +497,59 @@ async def analyze_optimization(arguments: Dict[str, Any], config: Config) -> Dic
         instruction_lines = instruction_lines[:max_asm_lines]
         truncated_asm = True
 
-    return {
+    # Extract optimization information if available
+    opt_output = result.get("optOutput", [])
+    optimization_info = []
+    if opt_output:
+        # Handle optimization output which might be a list of objects
+        if isinstance(opt_output, list):
+            for item in opt_output:
+                if isinstance(item, dict):
+                    optimization_info.append(item.get("text", ""))
+                else:
+                    optimization_info.append(str(item))
+        else:
+            optimization_info.append(str(opt_output))
+
+    # Extract optimization remarks from optOutput if requested
+    optimization_remarks = []
+    if include_optimization_remarks and opt_output:
+        if isinstance(opt_output, list):
+            for item in opt_output:
+                if isinstance(item, dict):
+                    # Extract displayString from optimization output
+                    display_string = item.get("displayString", "")
+                    if display_string:
+                        # Format as remark for consistency
+                        pass_name = item.get("Pass", "")
+                        opt_type = item.get("optType", "")
+                        debug_loc = item.get("DebugLoc", {})
+                        if debug_loc:
+                            file_name = debug_loc.get("File", "example.cpp")
+                            line = debug_loc.get("Line", 0)
+                            col = debug_loc.get("Column", 0)
+                            remark_text = f"{file_name}:{line}:{col}: remark: {display_string} [-R{opt_type.lower()}={pass_name}]"
+                        else:
+                            remark_text = f"remark: {display_string} [-R{opt_type.lower()}={pass_name}]"
+                        optimization_remarks.append(remark_text)
+
+    return_data = {
         "assembly_lines": len(asm_lines),
         "instruction_count": len(instruction_lines),
         "assembly_output": instruction_lines,
         "truncated": truncated_asm,
         "total_instructions": len(instruction_lines) + (len(asm_lines) - max_asm_lines if truncated_asm else 0),
     }
+
+    # Include optimization info if available
+    if optimization_info and any(info.strip() for info in optimization_info):
+        return_data["optimization_info"] = optimization_info
+
+    # Include optimization remarks if available and requested
+    if include_optimization_remarks and optimization_remarks:
+        return_data["optimization_remarks"] = optimization_remarks
+
+    return return_data
 
 
 def _analyze_execution_differences(

@@ -60,7 +60,7 @@ Examines generated assembly code to detect optimizations like vectorization, inl
 - `filter_out_library_code` - Hide standard library code (default: null)
 - `do_demangle` - Convert C++ symbols to readable names (default: null)
 
-**Returns**: Assembly output, instruction counts, optimization detection analysis
+**Returns**: Assembly output, instruction counts, optimization detection analysis, compiler optimization info (when supported)
 
 ### compare_compilers_tool
 **Purpose**: Side-by-side compiler comparison
