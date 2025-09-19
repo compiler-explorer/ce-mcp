@@ -7,12 +7,14 @@ import pytest
 from ce_mcp.config import Config
 from ce_mcp.tools import (
     analyze_optimization,
+    clear_tools_cache,
     compare_compilers,
     compile_and_run,
     compile_check,
     compile_with_diagnostics,
     extract_compiler_suggestion,
     generate_share_url,
+    validate_tools_for_compiler,
 )
 
 
@@ -641,3 +643,347 @@ int main() { return 0; }"""
         # Test get_library_details with nonexistent library
         result = await client.get_library_details("c++", "nonexistent")
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_validate_tools_for_compiler_valid_tools(self, config):
+        """Test tool validation with valid tools."""
+        from ce_mcp.api_client import CompilerExplorerClient
+
+        mock_client = AsyncMock(spec=CompilerExplorerClient)
+
+        # Mock compiler with tools
+        mock_compilers = [
+            {
+                "id": "clang1500",
+                "name": "x86-64 clang 15.0.0",
+                "tools": {
+                    "Sonar": {"id": "Sonar", "name": "Sonar"},
+                    "iwyu022": {"id": "iwyu022", "name": "include-what-you-use (0.22)"},
+                    "clangtidytrunk": {"id": "clangtidytrunk", "name": "clang-tidy (trunk)"},
+                },
+            }
+        ]
+        mock_client.get_compilers.return_value = mock_compilers
+
+        # Test with valid tools
+        tools = [
+            {"id": "Sonar", "args": []},
+            {"id": "iwyu022", "args": []},
+        ]
+
+        valid_tools, warnings = await validate_tools_for_compiler(tools, "clang1500", "c++", mock_client)
+
+        assert len(valid_tools) == 2
+        assert len(warnings) == 0
+        assert valid_tools[0]["id"] == "Sonar"
+        assert valid_tools[1]["id"] == "iwyu022"
+
+    @pytest.mark.asyncio
+    async def test_validate_tools_for_compiler_invalid_tools(self, config):
+        """Test tool validation with invalid tools."""
+        from ce_mcp.api_client import CompilerExplorerClient
+
+        mock_client = AsyncMock(spec=CompilerExplorerClient)
+
+        # Mock compiler with tools
+        mock_compilers = [
+            {
+                "id": "clang1500",
+                "name": "x86-64 clang 15.0.0",
+                "tools": {
+                    "Sonar": {"id": "Sonar", "name": "Sonar"},
+                    "iwyu022": {"id": "iwyu022", "name": "include-what-you-use (0.22)"},
+                    "clangtidytrunk": {"id": "clangtidytrunk", "name": "clang-tidy (trunk)"},
+                },
+            }
+        ]
+        mock_client.get_compilers.return_value = mock_compilers
+
+        # Test with invalid tools
+        tools = [
+            {"id": "sonar", "args": []},  # Wrong case
+            {"id": "nonexistent", "args": []},  # Doesn't exist
+        ]
+
+        valid_tools, warnings = await validate_tools_for_compiler(tools, "clang1500", "c++", mock_client)
+
+        assert len(valid_tools) == 0
+        assert len(warnings) == 2
+
+        # Check first warning (case mismatch)
+        assert "sonar" in warnings[0]
+        assert "Did you mean: 'Sonar'" in warnings[0]
+
+        # Check second warning (no match)
+        assert "nonexistent" in warnings[1]
+        assert "Available tools:" in warnings[1]
+
+    @pytest.mark.asyncio
+    async def test_validate_tools_for_compiler_missing_tools_field(self, config):
+        """Test tool validation when compiler doesn't have tools field."""
+        from ce_mcp.api_client import CompilerExplorerClient
+
+        mock_client = AsyncMock(spec=CompilerExplorerClient)
+
+        # Mock compiler without tools field
+        mock_compilers = [
+            {
+                "id": "old_compiler",
+                "name": "Old Compiler",
+                # No tools field
+            }
+        ]
+        mock_client.get_compilers.return_value = mock_compilers
+
+        tools = [{"id": "Sonar", "args": []}]
+
+        valid_tools, warnings = await validate_tools_for_compiler(tools, "old_compiler", "c++", mock_client)
+
+        assert len(valid_tools) == 1  # Tool is passed through
+        assert len(warnings) == 1
+        assert "Could not validate tools" in warnings[0]
+        assert "old_compiler" in warnings[0]
+
+    @pytest.mark.asyncio
+    async def test_validate_tools_for_compiler_missing_id(self, config):
+        """Test tool validation with tool missing id field."""
+        from ce_mcp.api_client import CompilerExplorerClient
+
+        mock_client = AsyncMock(spec=CompilerExplorerClient)
+
+        # Mock compiler with tools
+        mock_compilers = [
+            {
+                "id": "clang1500",
+                "name": "x86-64 clang 15.0.0",
+                "tools": {
+                    "Sonar": {"id": "Sonar", "name": "Sonar"},
+                },
+            }
+        ]
+        mock_client.get_compilers.return_value = mock_compilers
+
+        # Test with tool missing id
+        tools = [
+            {"args": []},  # Missing id field
+        ]
+
+        valid_tools, warnings = await validate_tools_for_compiler(tools, "clang1500", "c++", mock_client)
+
+        assert len(valid_tools) == 0
+        assert len(warnings) == 1
+        assert "missing 'id' field" in warnings[0]
+
+    @pytest.mark.asyncio
+    async def test_compile_with_diagnostics_tool_warnings(self, config):
+        """Test that compile_with_diagnostics includes tool warnings in response."""
+        from unittest.mock import patch
+
+        mock_client = AsyncMock()
+        mock_client.compile.return_value = {
+            "code": 0,
+            "stderr": [],
+            "tools": [],
+        }
+
+        # Mock the validation function to return warnings
+        with patch("ce_mcp.tools.validate_tools_for_compiler") as mock_validate:
+            mock_validate.return_value = (
+                [{"id": "Sonar", "args": []}],  # valid_tools
+                ["Warning: Tool 'sonar' not available. Did you mean: 'Sonar'?"],  # warnings
+            )
+
+            with patch("ce_mcp.tools.CompilerExplorerClient", return_value=mock_client):
+                result = await compile_with_diagnostics(
+                    {
+                        "source": "int main() { return 0; }",
+                        "language": "c++",
+                        "compiler": "clang1500",
+                        "tools": [{"id": "sonar", "args": []}],
+                    },
+                    config,
+                )
+
+                assert "tool_warnings" in result
+                assert len(result["tool_warnings"]) == 1
+                assert "Did you mean: 'Sonar'" in result["tool_warnings"][0]
+
+    @pytest.mark.asyncio
+    async def test_compile_and_run_tool_warnings(self, config):
+        """Test that compile_and_run includes tool warnings in response."""
+        from unittest.mock import patch
+
+        mock_client = AsyncMock()
+        mock_client.compile_and_execute.return_value = {
+            "code": 0,
+            "didExecute": True,
+            "stdout": "Hello",
+            "stderr": "",
+            "buildResult": {"code": 0},
+        }
+
+        # Mock the validation function to return warnings
+        with patch("ce_mcp.tools.validate_tools_for_compiler") as mock_validate:
+            mock_validate.return_value = (
+                [],  # valid_tools (empty because invalid)
+                ["Warning: Tool 'invalid_tool' not available"],  # warnings
+            )
+
+            with patch("ce_mcp.tools.CompilerExplorerClient", return_value=mock_client):
+                result = await compile_and_run(
+                    {
+                        "source": "int main() { return 0; }",
+                        "language": "c++",
+                        "compiler": "clang1500",
+                        "tools": [{"id": "invalid_tool", "args": []}],
+                    },
+                    config,
+                )
+
+                assert "tool_warnings" in result
+                assert len(result["tool_warnings"]) == 1
+                assert "invalid_tool" in result["tool_warnings"][0]
+
+    @pytest.mark.asyncio
+    async def test_validate_tools_cache_functionality(self, config):
+        """Test that tool validation uses caching to avoid repeated API calls."""
+        from unittest.mock import patch
+        from ce_mcp.api_client import CompilerExplorerClient
+
+        # Clear cache before test
+        clear_tools_cache()
+
+        mock_client = AsyncMock(spec=CompilerExplorerClient)
+
+        # Mock compiler with tools
+        mock_compilers = [
+            {
+                "id": "clang1500",
+                "name": "x86-64 clang 15.0.0",
+                "tools": {
+                    "Sonar": {"id": "Sonar", "name": "Sonar"},
+                    "iwyu022": {"id": "iwyu022", "name": "include-what-you-use (0.22)"},
+                },
+            }
+        ]
+        mock_client.get_compilers.return_value = mock_compilers
+
+        tools = [{"id": "Sonar", "args": []}]
+
+        # First call should hit the API
+        valid_tools1, warnings1 = await validate_tools_for_compiler(tools, "clang1500", "c++", mock_client)
+
+        # Second call should use cache and not hit the API
+        valid_tools2, warnings2 = await validate_tools_for_compiler(tools, "clang1500", "c++", mock_client)
+
+        # API should only be called once
+        assert mock_client.get_compilers.call_count == 1
+
+        # Results should be identical
+        assert valid_tools1 == valid_tools2
+        assert warnings1 == warnings2
+        assert len(valid_tools1) == 1
+        assert valid_tools1[0]["id"] == "Sonar"
+
+        # Clear cache for cleanup
+        clear_tools_cache()
+
+    @pytest.mark.asyncio
+    async def test_validate_tools_cache_expiration(self, config):
+        """Test that cache expires after TTL."""
+        from unittest.mock import patch
+        from ce_mcp.api_client import CompilerExplorerClient
+
+        # Clear cache before test
+        clear_tools_cache()
+
+        mock_client = AsyncMock(spec=CompilerExplorerClient)
+
+        # Mock compiler with tools
+        mock_compilers = [
+            {
+                "id": "clang1500",
+                "name": "x86-64 clang 15.0.0",
+                "tools": {
+                    "Sonar": {"id": "Sonar", "name": "Sonar"},
+                },
+            }
+        ]
+        mock_client.get_compilers.return_value = mock_compilers
+
+        tools = [{"id": "Sonar", "args": []}]
+
+        # Mock time to control cache expiration
+        with patch("ce_mcp.tools.time.time") as mock_time:
+            # First call at time 0
+            mock_time.return_value = 0
+            await validate_tools_for_compiler(tools, "clang1500", "c++", mock_client)
+            assert mock_client.get_compilers.call_count == 1
+
+            # Second call at time 1000 (within TTL of 86400) - should use cache
+            mock_time.return_value = 1000
+            await validate_tools_for_compiler(tools, "clang1500", "c++", mock_client)
+            assert mock_client.get_compilers.call_count == 1  # Still 1
+
+            # Third call at time 90000 (beyond TTL of 86400) - should hit API again
+            mock_time.return_value = 90000
+            await validate_tools_for_compiler(tools, "clang1500", "c++", mock_client)
+            assert mock_client.get_compilers.call_count == 2  # Now 2
+
+        # Clear cache for cleanup
+        clear_tools_cache()
+
+    @pytest.mark.asyncio
+    async def test_validate_tools_cache_different_compilers(self, config):
+        """Test that cache works correctly for different compilers."""
+        from ce_mcp.api_client import CompilerExplorerClient
+
+        # Clear cache before test
+        clear_tools_cache()
+
+        mock_client = AsyncMock(spec=CompilerExplorerClient)
+
+        # Mock different compilers with different tools
+        def mock_get_compilers(language, include_extended_info=False):
+            if mock_client.get_compilers.call_count == 1:
+                # First call for clang1500
+                return [
+                    {
+                        "id": "clang1500",
+                        "name": "x86-64 clang 15.0.0",
+                        "tools": {"Sonar": {"id": "Sonar", "name": "Sonar"}},
+                    }
+                ]
+            else:
+                # Second call for g132
+                return [
+                    {
+                        "id": "g132",
+                        "name": "x86-64 gcc 13.2",
+                        "tools": {"cppcheck": {"id": "cppcheck", "name": "Cppcheck"}},
+                    }
+                ]
+
+        mock_client.get_compilers.side_effect = mock_get_compilers
+
+        # Test with different compilers
+        tools1 = [{"id": "Sonar", "args": []}]
+        tools2 = [{"id": "cppcheck", "args": []}]
+
+        # First compiler
+        valid_tools1, warnings1 = await validate_tools_for_compiler(tools1, "clang1500", "c++", mock_client)
+
+        # Different compiler - should hit API again
+        valid_tools2, warnings2 = await validate_tools_for_compiler(tools2, "g132", "c++", mock_client)
+
+        # Should have called API twice (once for each compiler)
+        assert mock_client.get_compilers.call_count == 2
+
+        # Results should be valid for each respective compiler
+        assert len(valid_tools1) == 1
+        assert valid_tools1[0]["id"] == "Sonar"
+        assert len(valid_tools2) == 1
+        assert valid_tools2[0]["id"] == "cppcheck"
+
+        # Clear cache for cleanup
+        clear_tools_cache()

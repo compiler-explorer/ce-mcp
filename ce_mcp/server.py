@@ -617,13 +617,16 @@ async def find_compilers_tool(
 ) -> str:
     """Find compilers with optional filtering by experimental features, proposals, or tools.
 
+    ⚠️  AVOID generic searches like 'gcc' or 'clang' - they exceed token limits (25k+).
+    Use specific terms: 'gcc 13', 'x86-64 gcc', or exact compiler IDs with exact_search=True.
+
     Args:
         language: Programming language (default: c++)
         proposal: Specific proposal number to search for (e.g., 'P3385', '3385')
         feature: Experimental feature to search for (e.g., 'reflection', 'concepts', 'modules')
         category: Category to filter by (e.g., 'proposals', 'reflection', 'concepts')
         show_all: Show all experimental compilers organized by category
-        search_text: Filter compilers by text search in compiler names and IDs (should be compiler-related keywords like "gcc", "clang", "msvc", "nightly")
+        search_text: Filter compilers by text search in compiler names and IDs (should be compiler-related keywords like "gcc 13", "clang17", "msvc", "nightly")
         exact_search: If True, search_text is treated as an exact compiler ID match (case-sensitive)
         ids_only: Return only compiler IDs (use sparingly, only when search_text isn't sufficient)
         include_overrides: Include possibleOverrides field for architecture discovery (increases output significantly)
@@ -632,7 +635,7 @@ async def find_compilers_tool(
 
     Examples:
         - Find all C++ compilers: language="c++"
-        - Find GCC compilers: search_text="gcc"
+        - Find GCC 13 compilers: search_text="gcc 13"
         - Find MSVC compilers: search_text="msvc"
         - Find P3385 proposal compilers: proposal="P3385"
         - Find reflection feature compilers: feature="reflection"

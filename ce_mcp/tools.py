@@ -1,5 +1,6 @@
 """Tool implementations for Compiler Explorer MCP."""
 
+import time
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 from .api_client import CompilerExplorerClient
@@ -13,6 +14,115 @@ from .utils import (
     extract_compile_args_from_source,
     format_compiler_info,
 )
+
+# Cache for compiler tools to avoid repeated API calls
+# Format: {f"{language}:{compiler_id}": {"tools": {...}, "timestamp": float}}
+_compiler_tools_cache: Dict[str, Dict[str, Any]] = {}
+
+
+def clear_tools_cache() -> None:
+    """Clear the compiler tools cache. Useful for testing."""
+    global _compiler_tools_cache
+    _compiler_tools_cache.clear()
+
+
+async def validate_tools_for_compiler(
+    tools: List[Dict[str, Any]], compiler: str, language: str, client: "CompilerExplorerClient"
+) -> Tuple[List[Dict[str, Any]], List[str]]:
+    """
+    Validate tool IDs for a specific compiler and return warnings for invalid tools.
+
+    Uses caching to avoid repeated API calls for the same compiler.
+
+    Args:
+        tools: List of tool configurations with 'id' and optional 'args'
+        compiler: Compiler ID to validate tools against
+        language: Programming language
+        client: CompilerExplorerClient instance
+
+    Returns:
+        Tuple of (valid_tools, warnings)
+    """
+    if not tools:
+        return [], []
+
+    # Check cache first
+    cache_key = f"{language}:{compiler}"
+    cache_ttl = 86400  # 1 day
+    current_time = time.time()
+
+    cached_entry = _compiler_tools_cache.get(cache_key)
+    if cached_entry and (current_time - cached_entry["timestamp"]) < cache_ttl:
+        available_tools = cached_entry["tools"]
+    else:
+        # Get compiler info with tools data
+        compilers = await client.get_compilers(language, include_extended_info=True)
+
+        # Find the specific compiler
+        compiler_info = None
+        for comp in compilers:
+            if comp.get("id") == compiler:
+                compiler_info = comp
+                break
+
+        if not compiler_info or "tools" not in compiler_info:
+            return tools, [
+                f"Warning: Could not validate tools for compiler '{compiler}' - compiler not found or tools info unavailable"
+            ]
+
+        available_tools = compiler_info["tools"]
+
+        # Cache the result
+        _compiler_tools_cache[cache_key] = {"tools": available_tools, "timestamp": current_time}
+    valid_tools = []
+    warnings = []
+
+    for tool in tools:
+        tool_id = tool.get("id", "")
+        if not tool_id:
+            warnings.append("Warning: Tool configuration missing 'id' field")
+            continue
+
+        if tool_id in available_tools:
+            valid_tools.append(tool)
+        else:
+            # Tool not found, create warning with suggestions
+            available_tool_ids = list(available_tools.keys())
+
+            # Find close matches
+            suggestions = []
+            tool_id_lower = tool_id.lower()
+
+            # Exact case-insensitive match
+            for avail_id in available_tool_ids:
+                if avail_id.lower() == tool_id_lower:
+                    suggestions.append(avail_id)
+                    break
+
+            # Partial matches if no exact match
+            if not suggestions:
+                for avail_id in available_tool_ids:
+                    if tool_id_lower in avail_id.lower() or avail_id.lower() in tool_id_lower:
+                        suggestions.append(avail_id)
+
+            # Limit suggestions to 3 most relevant
+            suggestions = suggestions[:3]
+
+            warning_msg = f"Warning: Tool '{tool_id}' not available for compiler '{compiler}'"
+            if suggestions:
+                suggestion_str = "', '".join(suggestions)
+                warning_msg += f". Did you mean: '{suggestion_str}'?"
+            else:
+                # Show first few available tools if no good suggestions
+                first_few = sorted(available_tool_ids)[:5]
+                tools_str = "', '".join(first_few)
+                warning_msg += f". Available tools: '{tools_str}'"
+                if len(available_tool_ids) > 5:
+                    warning_msg += f" (and {len(available_tool_ids) - 5} more)"
+
+            warnings.append(warning_msg)
+
+    return valid_tools, warnings
 
 
 def extract_compiler_suggestion(message: str) -> Optional[str]:
@@ -229,6 +339,12 @@ async def compile_and_run(arguments: Dict[str, Any], config: Config) -> Dict[str
                         raise LibraryError(enhanced_error)
                 raise
 
+        # Validate tools if provided
+        validated_tools = tools
+        tool_warnings: List[str] = []
+        if tools:
+            validated_tools, tool_warnings = await validate_tools_for_compiler(tools, compiler, language, client)
+
         result = await client.compile_and_execute(
             source,
             language,
@@ -238,7 +354,7 @@ async def compile_and_run(arguments: Dict[str, Any], config: Config) -> Dict[str
             args,
             timeout,
             resolved_libraries,
-            tools,
+            validated_tools,
         )
     finally:
         await client.close()
@@ -271,7 +387,7 @@ async def compile_and_run(arguments: Dict[str, Any], config: Config) -> Dict[str
     if compiled and isinstance(stderr, list):
         stderr = "".join(item.get("text", "") if isinstance(item, dict) else str(item) for item in stderr)
 
-    return {
+    response = {
         "compiled": compiled,
         "executed": executed,
         "exit_code": exit_code,
@@ -280,6 +396,12 @@ async def compile_and_run(arguments: Dict[str, Any], config: Config) -> Dict[str
         "stderr": stderr,
         "truncated": result.get("truncated", False),
     }
+
+    # Add tool warnings if any
+    if tool_warnings:
+        response["tool_warnings"] = tool_warnings
+
+    return response
 
 
 async def compile_with_diagnostics(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
@@ -325,13 +447,19 @@ async def compile_with_diagnostics(arguments: Dict[str, Any], config: Config) ->
                         raise LibraryError(enhanced_error)
                 raise
 
+        # Validate tools if provided
+        validated_tools = tools
+        tool_warnings: List[str] = []
+        if tools:
+            validated_tools, tool_warnings = await validate_tools_for_compiler(tools, compiler, language, client)
+
         result = await client.compile(
             source,
             language,
             compiler,
             options,
             libraries=resolved_libraries,
-            tools=tools,
+            tools=validated_tools,
         )
     finally:
         await client.close()
@@ -404,12 +532,18 @@ async def compile_with_diagnostics(arguments: Dict[str, Any], config: Config) ->
                 }
             )
 
-    return {
+    response = {
         "success": result.get("code", 1) == 0,
         "diagnostics": diagnostics,
         "command": f"{compiler} {options} <source>",
         "tool_outputs": tool_outputs,
     }
+
+    # Add tool warnings if any
+    if tool_warnings:
+        response["tool_warnings"] = tool_warnings
+
+    return response
 
 
 async def analyze_optimization(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
