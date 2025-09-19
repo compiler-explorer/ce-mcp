@@ -528,7 +528,9 @@ async def analyze_optimization(arguments: Dict[str, Any], config: Config) -> Dic
                             file_name = debug_loc.get("File", "example.cpp")
                             line = debug_loc.get("Line", 0)
                             col = debug_loc.get("Column", 0)
-                            remark_text = f"{file_name}:{line}:{col}: remark: {display_string} [-R{opt_type.lower()}={pass_name}]"
+                            remark_text = (
+                                f"{file_name}:{line}:{col}: remark: {display_string} [-R{opt_type.lower()}={pass_name}]"
+                            )
                         else:
                             remark_text = f"remark: {display_string} [-R{opt_type.lower()}={pass_name}]"
                         optimization_remarks.append(remark_text)
