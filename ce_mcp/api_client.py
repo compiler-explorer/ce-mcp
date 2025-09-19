@@ -84,6 +84,7 @@ class CompilerExplorerClient:
         get_assembly: bool = False,
         filter_overrides: Optional[Dict[str, bool]] = None,
         libraries: List[Dict[str, str]] | None = None,
+        tools: List[Dict[str, Any]] | None = None,
     ) -> Dict[str, Any]:
         """Compile source code."""
         session = await self._get_session()
@@ -169,7 +170,7 @@ class CompilerExplorerClient:
                         else self.config.filters.debugCalls
                     ),
                 },
-                "tools": [],
+                "tools": tools or [],
                 "libraries": libraries or [],
             },
         }
@@ -223,7 +224,7 @@ class CompilerExplorerClient:
                     "trim": self.config.filters.trim,
                     "debugCalls": self.config.filters.debugCalls,
                 },
-                "tools": [],
+                "tools": tools or [],
                 "libraries": libraries or [],
             },
         }

@@ -312,6 +312,7 @@ async def compile_with_diagnostics(
     options = arguments.get("options", "")
     diagnostic_level = arguments.get("diagnostic_level", "normal")
     libraries = arguments.get("libraries")
+    tools = arguments.get("tools")
 
     if diagnostic_level == "verbose":
         options = f"{options} -Wall -Wextra -Wpedantic".strip()
@@ -351,7 +352,7 @@ async def compile_with_diagnostics(
                 raise
 
         result = await client.compile(
-            source, language, compiler, options, libraries=resolved_libraries
+            source, language, compiler, options, libraries=resolved_libraries, tools=tools
         )
     finally:
         await client.close()
@@ -411,10 +412,22 @@ async def compile_with_diagnostics(
                     }
                 )
 
+    # Extract tool outputs if available
+    tool_outputs = []
+    for tool_result in result.get("tools", []):
+        if isinstance(tool_result, dict) and "stdout" in tool_result:
+            tool_outputs.append({
+                "tool_id": tool_result.get("id", "unknown"),
+                "stdout": tool_result.get("stdout", []),
+                "stderr": tool_result.get("stderr", []),
+                "code": tool_result.get("code", 0),
+            })
+
     return {
         "success": result.get("code", 1) == 0,
         "diagnostics": diagnostics,
         "command": f"{compiler} {options} <source>",
+        "tool_outputs": tool_outputs,
     }
 
 
@@ -982,20 +995,27 @@ async def find_compilers(
     category = arguments.get("category")
     show_all = arguments.get("show_all", False)
     search_text = arguments.get("search_text")
+    exact_search = arguments.get("exact_search", False)
     ids_only = arguments.get("ids_only", False)
     include_overrides = arguments.get("include_overrides", False)
     include_runtime_tools = arguments.get("include_runtime_tools", False)
     include_compile_tools = arguments.get("include_compile_tools", False)
 
-    def apply_text_filter(compilers_list, search_text):
-        """Filter compilers by search text in names and IDs (case-insensitive)."""
+    def apply_text_filter(compilers_list, search_text, exact_search=False):
+        """Filter compilers by search text in names and IDs."""
         if not search_text:
             return compilers_list
-        search_lower = search_text.lower()
-        return [
-            comp for comp in compilers_list
-            if search_lower in comp.id.lower() or search_lower in comp.name.lower()
-        ]
+
+        if exact_search:
+            # Exact match on compiler ID (case-sensitive)
+            return [comp for comp in compilers_list if comp.id == search_text]
+        else:
+            # Partial match on names and IDs (case-insensitive)
+            search_lower = search_text.lower()
+            return [
+                comp for comp in compilers_list
+                if search_lower in comp.id.lower() or search_lower in comp.name.lower()
+            ]
 
     def format_compiler_info(comp, ids_only=False, include_overrides=False, include_runtime_tools=False, include_compile_tools=False):
         """Format compiler info with optional ids_only mode, overrides, and tools."""
@@ -1023,7 +1043,10 @@ async def find_compilers(
 
         # Add tools (compile-time tools) if requested and available
         if include_compile_tools and hasattr(comp, 'tools'):
-            info["tools"] = comp.tools
+            info["tools"] = {
+                tool_id: {"id": tool_data["id"], "name": tool_data["tool"]["name"]}
+                for tool_id, tool_data in comp.tools.items()
+            }
 
         return info
 
@@ -1060,7 +1083,7 @@ async def find_compilers(
 
             for cat_name, cat_compilers in categorized.items():
                 # Apply text filter to category compilers
-                filtered_compilers = apply_text_filter(cat_compilers, search_text)
+                filtered_compilers = apply_text_filter(cat_compilers, search_text, exact_search)
 
                 if filtered_compilers:  # Only include categories with matching compilers
                     result["categories"][cat_name] = {
@@ -1082,7 +1105,7 @@ async def find_compilers(
 
         else:
             # Apply text filter to experimental compilers
-            filtered_experimental = apply_text_filter(experimental_compilers, search_text)
+            filtered_experimental = apply_text_filter(experimental_compilers, search_text, exact_search)
 
             # Return filtered results
             result = {

@@ -19,6 +19,8 @@ class ExperimentalCompiler:
     version_info: Optional[Dict[str, Any]] = None
     modified: Optional[str] = None
     possible_overrides: Optional[Dict[str, Any]] = None
+    possible_runtime_tools: Optional[Dict[str, Any]] = None
+    tools: Optional[Dict[str, Any]] = None
 
 
 class ExperimentalCompilerFinder:
@@ -103,6 +105,8 @@ class ExperimentalCompilerFinder:
                 ),
                 modified=None,  # Will be populated later if nightly
                 possible_overrides=compiler.get("possibleOverrides"),
+                possible_runtime_tools=compiler.get("possibleRuntimeTools"),
+                tools=compiler.get("tools"),
             )
 
             # Add to appropriate category
@@ -171,6 +175,8 @@ class ExperimentalCompilerFinder:
                         ),
                         modified=None,  # Will be populated later if nightly
                         possible_overrides=compiler.get("possibleOverrides"),
+                        possible_runtime_tools=compiler.get("possibleRuntimeTools"),
+                        tools=compiler.get("tools"),
                     )
                 )
 
@@ -218,6 +224,8 @@ class ExperimentalCompilerFinder:
                         ),
                         modified=None,  # Will be populated later if nightly
                         possible_overrides=compiler.get("possibleOverrides"),
+                        possible_runtime_tools=compiler.get("possibleRuntimeTools"),
+                        tools=compiler.get("tools"),
                     )
                 )
 
@@ -259,6 +267,8 @@ class ExperimentalCompilerFinder:
                         ),
                         modified=None,  # Will be populated later if nightly
                         possible_overrides=compiler.get("possibleOverrides"),
+                        possible_runtime_tools=compiler.get("possibleRuntimeTools"),
+                        tools=compiler.get("tools"),
                     )
                 )
 

@@ -13,26 +13,34 @@ NC='\033[0m' # No Color
 
 # Helper functions
 print_header() {
-    echo -e "${BLUE}================================================${NC}"
-    echo -e "${BLUE}  Compiler Explorer MCP Setup for Claude Code  ${NC}"
-    echo -e "${BLUE}================================================${NC}"
-    echo ""
+    if [[ "$QUIET" != true ]]; then
+        echo -e "${BLUE}================================================${NC}"
+        echo -e "${BLUE}  Compiler Explorer MCP Setup for Claude Code  ${NC}"
+        echo -e "${BLUE}================================================${NC}"
+        echo ""
+    fi
 }
 
 print_step() {
-    echo -e "${GREEN}[STEP]${NC} $1"
+    if [[ "$QUIET" != true ]]; then
+        echo -e "${GREEN}[STEP]${NC} $1"
+    fi
 }
 
 print_info() {
-    echo -e "${YELLOW}[INFO]${NC} $1"
+    if [[ "$QUIET" != true ]]; then
+        echo -e "${YELLOW}[INFO]${NC} $1"
+    fi
 }
 
 print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
 print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    if [[ "$QUIET" != true ]]; then
+        echo -e "${GREEN}[SUCCESS]${NC} $1"
+    fi
 }
 
 # Check if command exists
@@ -42,8 +50,6 @@ command_exists() {
 
 # Main setup function
 main() {
-    print_header
-
     # Remember the directory where the script is located (ce-mcp source directory)
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -52,6 +58,7 @@ main() {
     GLOBAL_INSTALL=false
     GLOBAL_MCP=false
     NON_INTERACTIVE=false
+    QUIET=false
     DEFAULT_LANG="c++"
     DEFAULT_COMPILER="g++"
     UNINSTALL=false
@@ -72,6 +79,11 @@ main() {
                 shift
                 ;;
             --non-interactive)
+                NON_INTERACTIVE=true
+                shift
+                ;;
+            -q|--quiet)
+                QUIET=true
                 NON_INTERACTIVE=true
                 shift
                 ;;
@@ -98,6 +110,8 @@ main() {
                 ;;
         esac
     done
+
+    print_header
 
     # If no project directory specified, ask user (unless non-interactive)
     if [[ -z "$PROJECT_DIR" ]]; then
@@ -127,7 +141,9 @@ main() {
     print_info "Setting up Compiler Explorer MCP for Claude Code"
     print_info "Project directory: $PROJECT_DIR"
     print_info "Source directory: $SCRIPT_DIR"
-    echo ""
+    if [[ "$QUIET" != true ]]; then
+        echo ""
+    fi
 
     # Step 1: Check prerequisites
     print_step "Checking prerequisites..."
@@ -173,22 +189,26 @@ check_prerequisites() {
 
     if [[ ${#missing_deps[@]} -gt 0 ]]; then
         print_error "Missing dependencies: ${missing_deps[*]}"
-        echo ""
+        if [[ "$QUIET" != true ]]; then
+            echo ""
+        fi
         print_info "Please install the missing dependencies:"
-        for dep in "${missing_deps[@]}"; do
-            case $dep in
-                "python3")
-                    echo "  - Python 3.8+: https://python.org/downloads"
-                    ;;
-                "claude")
-                    echo "  - Claude Code: https://claude.ai/download"
-                    ;;
-                "uv or pip")
-                    echo "  - UV: curl -LsSf https://astral.sh/uv/install.sh | sh"
-                    echo "  - Or use pip (comes with Python)"
-                    ;;
-            esac
-        done
+        if [[ "$QUIET" != true ]]; then
+            for dep in "${missing_deps[@]}"; do
+                case $dep in
+                    "python3")
+                        echo "  - Python 3.8+: https://python.org/downloads"
+                        ;;
+                    "claude")
+                        echo "  - Claude Code: https://claude.ai/download"
+                        ;;
+                    "uv or pip")
+                        echo "  - UV: curl -LsSf https://astral.sh/uv/install.sh | sh"
+                        echo "  - Or use pip (comes with Python)"
+                        ;;
+                esac
+            done
+        fi
         exit 1
     fi
 
@@ -223,20 +243,36 @@ install_mcp_server() {
             # Create virtual environment if it doesn't exist
             if [[ ! -d ".venv" ]]; then
                 if command_exists uv; then
-                    uv venv --seed
+                    if [[ "$QUIET" == true ]]; then
+                        uv venv --seed >/dev/null 2>&1
+                    else
+                        uv venv --seed
+                    fi
                 else
-                    python3 -m venv .venv
+                    if [[ "$QUIET" == true ]]; then
+                        python3 -m venv .venv >/dev/null 2>&1
+                    else
+                        python3 -m venv .venv
+                    fi
                 fi
             fi
 
             # Install ce-mcp in the virtual environment
             if command_exists uv; then
                 source .venv/bin/activate
-                uv pip install -e "$SCRIPT_DIR"
+                if [[ "$QUIET" == true ]]; then
+                    uv pip install -e "$SCRIPT_DIR" >/dev/null 2>&1
+                else
+                    uv pip install -e "$SCRIPT_DIR"
+                fi
                 deactivate
             else
                 source .venv/bin/activate
-                pip install -e "$SCRIPT_DIR"
+                if [[ "$QUIET" == true ]]; then
+                    pip install -e "$SCRIPT_DIR" >/dev/null 2>&1
+                else
+                    pip install -e "$SCRIPT_DIR"
+                fi
                 deactivate
             fi
 
@@ -267,7 +303,7 @@ create_project_config() {
     # Create .ce-mcp-config.yaml with interactive prompts
     print_info "Creating project configuration..."
 
-    if [[ "$NON_INTERACTIVE" == false ]]; then
+    if [[ "$NON_INTERACTIVE" == false ]] && [[ "$QUIET" != true ]]; then
         # Ask for default language
         echo -e "${YELLOW}What's your primary programming language? (c++/c/rust/go/python) [c++]:${NC}"
         read -r INPUT_LANG
@@ -376,7 +412,11 @@ register_mcp_server() {
 
     # Register with claude mcp add
     # Use -- to separate claude mcp options from MCP server arguments
-    claude mcp add $SCOPE_ARG "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH"
+    if [[ "$QUIET" == true ]]; then
+        claude mcp add $SCOPE_ARG "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH" >/dev/null 2>&1
+    else
+        claude mcp add $SCOPE_ARG "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH"
+    fi
 
     if [[ $? -eq 0 ]]; then
         print_success "MCP server registered successfully with Claude"
@@ -421,9 +461,11 @@ verify_installation() {
         print_success "MCP server is registered with Claude"
 
         # Show MCP server details
-        echo ""
-        print_info "MCP server details:"
-        claude mcp get "$MCP_NAME" 2>/dev/null || true
+        if [[ "$QUIET" != true ]]; then
+            echo ""
+            print_info "MCP server details:"
+            claude mcp get "$MCP_NAME" 2>/dev/null || true
+        fi
     else
         print_error "MCP server not found in Claude configuration"
         exit 1
@@ -439,41 +481,43 @@ verify_installation() {
 }
 
 show_completion_message() {
-    echo ""
-    print_success "🎉 Setup complete!"
-    echo ""
-    echo -e "${GREEN}Your project is now configured for Claude Code with Compiler Explorer MCP!${NC}"
-    echo ""
-    echo -e "${YELLOW}Next steps:${NC}"
-    echo "1. Restart Claude Code (or reload the window)"
-    echo "2. The MCP server should be automatically available"
-    echo "3. Try using the MCP tools with @$MCP_NAME:"
-    echo ""
-    echo -e "${YELLOW}Example usage:${NC}"
-    echo "  Ask Claude: \"@$MCP_NAME compile and run this code: int main(){return 0;}\""
-    echo ""
-    echo -e "${YELLOW}Configuration:${NC}"
-    if [[ "$GLOBAL_MCP" == true ]]; then
-        echo "  📄 MCP server registered globally (available in all projects)"
-    else
-        echo "  📄 MCP server registered for this project"
+    if [[ "$QUIET" != true ]]; then
+        echo ""
+        print_success "🎉 Setup complete!"
+        echo ""
+        echo -e "${GREEN}Your project is now configured for Claude Code with Compiler Explorer MCP!${NC}"
+        echo ""
+        echo -e "${YELLOW}Next steps:${NC}"
+        echo "1. Restart Claude Code (or reload the window)"
+        echo "2. The MCP server should be automatically available"
+        echo "3. Try using the MCP tools with @$MCP_NAME:"
+        echo ""
+        echo -e "${YELLOW}Example usage:${NC}"
+        echo "  Ask Claude: \"@$MCP_NAME compile and run this code: int main(){return 0;}\""
+        echo ""
+        echo -e "${YELLOW}Configuration:${NC}"
+        if [[ "$GLOBAL_MCP" == true ]]; then
+            echo "  📄 MCP server registered globally (available in all projects)"
+        else
+            echo "  📄 MCP server registered for this project"
+        fi
+        echo "  ⚙️  .ce-mcp-config.yaml - Project-specific settings"
+        echo ""
+        echo -e "${YELLOW}Available tools via @$MCP_NAME:${NC}"
+        echo "  🔍 compile_check_tool - Quick syntax validation"
+        echo "  🚀 compile_and_run_tool - Compile and execute code"
+        echo "  🐛 compile_with_diagnostics_tool - Detailed error analysis"
+        echo "  ⚡ analyze_optimization_tool - Assembly optimization analysis"
+        echo "  🔗 generate_share_url_tool - Create shareable links"
+        echo "  📊 compare_compilers_tool - Side-by-side compiler comparison"
+        echo ""
+        echo -e "${YELLOW}Managing the MCP server:${NC}"
+        echo "  claude mcp list              - List all MCP servers"
+        echo "  claude mcp get $MCP_NAME     - Show server details"
+        echo "  claude mcp remove $MCP_NAME  - Remove the server"
+        echo ""
+        echo -e "${BLUE}Happy coding! 🚀${NC}"
     fi
-    echo "  ⚙️  .ce-mcp-config.yaml - Project-specific settings"
-    echo ""
-    echo -e "${YELLOW}Available tools via @$MCP_NAME:${NC}"
-    echo "  🔍 compile_check_tool - Quick syntax validation"
-    echo "  🚀 compile_and_run_tool - Compile and execute code"
-    echo "  🐛 compile_with_diagnostics_tool - Detailed error analysis"
-    echo "  ⚡ analyze_optimization_tool - Assembly optimization analysis"
-    echo "  🔗 generate_share_url_tool - Create shareable links"
-    echo "  📊 compare_compilers_tool - Side-by-side compiler comparison"
-    echo ""
-    echo -e "${YELLOW}Managing the MCP server:${NC}"
-    echo "  claude mcp list              - List all MCP servers"
-    echo "  claude mcp get $MCP_NAME     - Show server details"
-    echo "  claude mcp remove $MCP_NAME  - Remove the server"
-    echo ""
-    echo -e "${BLUE}Happy coding! 🚀${NC}"
 }
 
 uninstall_mcp_server() {
@@ -588,6 +632,7 @@ show_help() {
     echo "  --global            Install ce-mcp globally with pipx instead of project-local"
     echo "  --global-mcp        Register MCP server globally (available in all projects)"
     echo "  --non-interactive   Skip interactive prompts, use defaults"
+    echo "  -q, --quiet         Quiet mode: no output except errors"
     echo "  --language LANG     Default language (c++, c, rust, go, python)"
     echo "  --compiler COMP     Default compiler (g++, clang++, rustc, etc.)"
     echo "  --uninstall         Uninstall ce-mcp and remove configuration"
@@ -599,6 +644,7 @@ show_help() {
     echo "  $0 --global                          # Install ce-mcp globally"
     echo "  $0 --global-mcp                      # Register MCP globally (all projects)"
     echo "  $0 --non-interactive                 # Use defaults without prompts"
+    echo "  $0 -q                                # Quiet setup with no output"
     echo "  $0 --language rust --compiler rustc  # Setup for Rust"
     echo "  $0 --uninstall                       # Uninstall ce-mcp"
     echo ""

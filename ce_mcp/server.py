@@ -231,6 +231,7 @@ async def compile_with_diagnostics_tool(
     options: str = "",
     diagnostic_level: str = "normal",
     libraries: list | None = None,
+    tools: list | None = None,
 ) -> str:
     """Get comprehensive compilation warnings and errors with detailed analysis.
 
@@ -255,6 +256,7 @@ async def compile_with_diagnostics_tool(
       - "normal": Standard warnings with -Wall
       - "verbose": Comprehensive warnings with -Wall -Wextra -Wpedantic
     - libraries: List of libraries with format [{"id": "library_name", "version": "latest"}]
+    - tools: List of tools to run alongside compilation (e.g., [{"id": "iwyu022", "args": []}])
 
     **Returns JSON with:**
     - success: Boolean indicating if compilation succeeded
@@ -324,6 +326,7 @@ async def compile_with_diagnostics_tool(
             "options": options,
             "diagnostic_level": diagnostic_level,
             "libraries": libraries,
+            "tools": tools,
         },
         config,
     )
@@ -600,6 +603,7 @@ async def find_compilers_tool(
     category: str | None = None,
     show_all: bool = False,
     search_text: str | None = None,
+    exact_search: bool = False,
     ids_only: bool = False,
     include_overrides: bool = False,
     include_runtime_tools: bool = False,
@@ -613,11 +617,12 @@ async def find_compilers_tool(
         feature: Experimental feature to search for (e.g., 'reflection', 'concepts', 'modules')
         category: Category to filter by (e.g., 'proposals', 'reflection', 'concepts')
         show_all: Show all experimental compilers organized by category
-        search_text: Filter compilers by text search in names and IDs (recommended for token efficiency)
+        search_text: Filter compilers by text search in compiler names and IDs (should be compiler-related keywords like "gcc", "clang", "msvc", "nightly")
+        exact_search: If True, search_text is treated as an exact compiler ID match (case-sensitive)
         ids_only: Return only compiler IDs (use sparingly, only when search_text isn't sufficient)
         include_overrides: Include possibleOverrides field for architecture discovery (increases output significantly)
         include_runtime_tools: Include possibleRuntimeTools field for runtime tool discovery (increases output significantly)
-        include_compile_tools: Include tools field for compile-time tool discovery (increases output significantly)
+        include_compile_tools: Include tools field for compile-time tool discovery (increases output significantly; requires specific compiler ID in search_text)
 
     Examples:
         - Find all C++ compilers: language="c++"
@@ -630,6 +635,7 @@ async def find_compilers_tool(
         - Get GCC with architecture overrides: search_text="gcc", include_overrides=True
         - Get clang 17 with runtime tools: search_text="clang1701", include_runtime_tools=True
         - Get GCC 13.2 with compile tools: search_text="g132", include_compile_tools=True
+        - Find exact compiler by ID: search_text="clang1600", exact_search=True
     """
     result = await find_compilers(
         {
@@ -639,6 +645,7 @@ async def find_compilers_tool(
             "category": category,
             "show_all": show_all,
             "search_text": search_text,
+            "exact_search": exact_search,
             "ids_only": ids_only,
             "include_overrides": include_overrides,
             "include_runtime_tools": include_runtime_tools,
