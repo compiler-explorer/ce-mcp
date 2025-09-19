@@ -8,22 +8,32 @@ A Model Context Protocol (MCP) server that provides efficient access to Compiler
 - **Use-case driven tools** - Specific functions for common compilation scenarios
 - **Smart filtering** - Context-aware output filtering based on the task
 - **Comprehensive language support** - C++, C, Rust, Go, Python, and more
-- **Extensive test coverage** - 87 tests all passing (100% success rate)
+- **Extensive test coverage** - Comprehensive unit and integration tests
 - **Claude Code integration** - Automated setup for Claude Code workflows
 
-## Implementation Status
+## Features Overview
 
-**98% Complete** - See [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) for detailed analysis.
-
-✅ **Fully Working**: All 12 MCP tools implemented and functional
-⚠️ **Minor Issues**: One tool needs spec compliance fixes
+✅ **12 MCP Tools**: All tools operational and production-ready
 ✅ **Comprehensive**: Language discovery, library support, assembly docs, and sharing tools
+✅ **Well-tested**: Complete test coverage for all functionality
+
+## Quick Start (Claude Code Users)
+
+If you're using Claude Code, simply run:
+
+```bash
+git clone https://github.com/compiler-explorer/ce-mcp
+cd ce-mcp
+./setup-claude-code.sh
+```
+
+This will automatically install and configure everything. That's it!
 
 ## Quick Setup
 
 ### Prerequisites
 
-- **Python 3.8+** - Required for running the MCP server
+- **Python 3.10+** - Required for running the MCP server
 - **UV** - Fast Python package manager (recommended)
 
 ### 1. Install UV (if not already installed)
@@ -137,17 +147,17 @@ cd /path/to/your/project
 # Install ce-mcp in project environment
 uv pip install -e path/to/ce-mcp
 
-# Or from PyPI (when published)
-uv pip install ce-mcp
+# Install from the local repository
+uv pip install -e /opt/compiler-explorer/ce-mcp
 ```
 
 **Option 2: Global Installation**
 ```bash
 # Install globally for use across all projects
-pipx install ce-mcp
+pipx install /opt/compiler-explorer/ce-mcp
 
 # Or with UV in a global environment
-uv tool install ce-mcp
+uv pip install /opt/compiler-explorer/ce-mcp
 ```
 
 #### Configuration
@@ -267,8 +277,9 @@ isort .
 # Type checking
 mypy ce_mcp/
 
-# Linting
-flake8 ce_mcp/
+# Code quality checks
+uv run black ce_mcp/ tests/
+isort ce_mcp/ tests/
 ```
 
 ### Alternative: Traditional pip setup
@@ -294,6 +305,10 @@ python -m ce_mcp.cli
 **"command not found: ce-mcp"**
 - Make sure your virtual environment is activated
 - Try running directly: `python -m ce_mcp.cli`
+
+**"ModuleNotFoundError: No module named 'packaging'"**
+- Install missing dependency: `uv pip install packaging`
+- Or reinstall with all dependencies: `uv pip install -e .`
 
 **"ModuleNotFoundError: No module named 'ce_mcp'"**
 - Install in development mode: `uv pip install -e .`
