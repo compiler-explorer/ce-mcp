@@ -57,15 +57,7 @@ jobs:
     - name: Run all tests
       run: |
         source .venv/bin/activate
-        .venv/bin/pytest tests/ -v --tb=short --cov=ce_mcp --cov-report=xml
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+        .venv/bin/pytest tests/ -v --tb=short
 
   lint-and-format:
     runs-on: ubuntu-latest
