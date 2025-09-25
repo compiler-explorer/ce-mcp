@@ -292,13 +292,13 @@ function New-ProjectConfig {
 
     # Determine config location based on scope
     if ($GlobalMcp) {
-        # Use user's home directory for global config
+        # Use user's home directory for global config (ce-mcp will look here by default)
         $configDir = Join-Path $env:USERPROFILE ".config\compiler_explorer_mcp"
         if (-not (Test-Path $configDir)) {
             New-Item -ItemType Directory -Path $configDir -Force | Out-Null
         }
         $script:ConfigPath = Join-Path $configDir "config.yaml"
-        Write-Info "Creating global configuration in user directory..."
+        Write-Info "Creating global configuration in default location: $script:ConfigPath"
     }
     else {
         # Use project directory for local config
@@ -418,7 +418,8 @@ function Register-MCPServer {
     try {
         if ($Quiet) {
             if ($GlobalMcp) {
-                claude mcp add --scope user $mcpName $CE_MCP_COMMAND -- --config $script:ConfigPath 2>&1 | Out-Null
+                # For global registration, don't pass config - let ce-mcp use defaults or find config in default location
+                claude mcp add --scope user $mcpName $CE_MCP_COMMAND 2>&1 | Out-Null
             }
             else {
                 claude mcp add $mcpName $CE_MCP_COMMAND -- --config $script:ConfigPath 2>&1 | Out-Null
@@ -426,7 +427,8 @@ function Register-MCPServer {
         }
         else {
             if ($GlobalMcp) {
-                claude mcp add --scope user $mcpName $CE_MCP_COMMAND -- --config $script:ConfigPath
+                # For global registration, don't pass config - let ce-mcp use defaults or find config in default location
+                claude mcp add --scope user $mcpName $CE_MCP_COMMAND
             }
             else {
                 claude mcp add $mcpName $CE_MCP_COMMAND -- --config $script:ConfigPath
@@ -438,7 +440,7 @@ function Register-MCPServer {
         Write-ErrorMsg "Failed to register MCP server"
         Write-Info "You can try manually registering with:"
         if ($GlobalMcp) {
-            Write-Host "  claude mcp add --scope user `"$mcpName`" `"$CE_MCP_COMMAND`" -- --config `"$script:ConfigPath`""
+            Write-Host "  claude mcp add --scope user `"$mcpName`" `"$CE_MCP_COMMAND`""
         }
         else {
             Write-Host "  claude mcp add `"$mcpName`" `"$CE_MCP_COMMAND`" -- --config `"$script:ConfigPath`""
@@ -704,6 +706,13 @@ function Main {
     }
 
     Write-Header
+
+    # Auto-enable global installation if global MCP is requested
+    if ($GlobalMcp -and -not $Global) {
+        $script:Global = $true
+        Write-Info "Global MCP registration requires global installation - automatically enabling -Global"
+    }
+
     Write-Info "Setting up Compiler Explorer MCP for Claude Code"
     Write-Info "Project directory: $ProjectDir "
     Write-Info "Source directory: $SCRIPT_DIR"

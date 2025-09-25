@@ -114,6 +114,12 @@ main() {
 
     print_header
 
+    # Auto-enable global installation if global MCP is requested
+    if [[ "$GLOBAL_MCP" == true ]] && [[ "$GLOBAL_INSTALL" != true ]]; then
+        GLOBAL_INSTALL=true
+        print_info "Global MCP registration requires global installation - automatically enabling --global"
+    fi
+
     # If no project directory specified, ask user (unless non-interactive)
     if [[ -z "$PROJECT_DIR" ]]; then
         if [[ "$NON_INTERACTIVE" == false ]]; then
@@ -307,11 +313,11 @@ EOF
 create_project_config() {
     # Determine config location based on scope
     if [[ "$GLOBAL_MCP" == true ]]; then
-        # Use user's home directory for global config
+        # Use user's home directory for global config (ce-mcp will look here by default)
         CONFIG_DIR="$HOME/.config/compiler_explorer_mcp"
         mkdir -p "$CONFIG_DIR"
         CONFIG_PATH="$CONFIG_DIR/config.yaml"
-        print_info "Creating global configuration in user directory..."
+        print_info "Creating global configuration in default location: $CONFIG_PATH"
     else
         # Use project directory for local config
         cd "$PROJECT_DIR"
@@ -431,12 +437,13 @@ register_mcp_server() {
     # Use -- to separate claude mcp options from MCP server arguments
     if [[ "$QUIET" == true ]]; then
         if [[ "$GLOBAL_MCP" == true ]]; then
-            if claude mcp add --scope user "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH" >/dev/null 2>&1; then
+            # For global registration, don't pass config - let ce-mcp use defaults or find config in default location
+            if claude mcp add --scope user "$MCP_NAME" "$CE_MCP_COMMAND" >/dev/null 2>&1; then
                 print_success "MCP server registered successfully with Claude"
             else
                 print_error "Failed to register MCP server"
                 print_info "You can try manually registering with:"
-                echo "  claude mcp add --scope user \"$MCP_NAME\" \"$CE_MCP_COMMAND\" -- --config \"$CONFIG_PATH\""
+                echo "  claude mcp add --scope user \"$MCP_NAME\" \"$CE_MCP_COMMAND\""
                 exit 1
             fi
         else
@@ -451,12 +458,13 @@ register_mcp_server() {
         fi
     else
         if [[ "$GLOBAL_MCP" == true ]]; then
-            if claude mcp add --scope user "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH"; then
+            # For global registration, don't pass config - let ce-mcp use defaults or find config in default location
+            if claude mcp add --scope user "$MCP_NAME" "$CE_MCP_COMMAND"; then
                 print_success "MCP server registered successfully with Claude"
             else
                 print_error "Failed to register MCP server"
                 print_info "You can try manually registering with:"
-                echo "  claude mcp add --scope user \"$MCP_NAME\" \"$CE_MCP_COMMAND\" -- --config \"$CONFIG_PATH\""
+                echo "  claude mcp add --scope user \"$MCP_NAME\" \"$CE_MCP_COMMAND\""
                 exit 1
             fi
         else
