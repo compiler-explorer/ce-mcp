@@ -402,30 +402,52 @@ register_mcp_server() {
 
     # Determine scope message
     if [[ "$GLOBAL_MCP" == true ]]; then
-        print_info "Registering MCP server globally..."
+        print_info "Registering MCP server globally (user scope)..."
     else
-        print_info "Registering MCP server for this project..."
+        print_info "Registering MCP server for this project (local scope)..."
     fi
 
     # Register with claude mcp add
     # Use -- to separate claude mcp options from MCP server arguments
     if [[ "$QUIET" == true ]]; then
-        if claude mcp add "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH" >/dev/null 2>&1; then
-            print_success "MCP server registered successfully with Claude"
+        if [[ "$GLOBAL_MCP" == true ]]; then
+            if claude mcp add --scope user "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH" >/dev/null 2>&1; then
+                print_success "MCP server registered successfully with Claude"
+            else
+                print_error "Failed to register MCP server"
+                print_info "You can try manually registering with:"
+                echo "  claude mcp add --scope user \"$MCP_NAME\" \"$CE_MCP_COMMAND\" -- --config \"$CONFIG_PATH\""
+                exit 1
+            fi
         else
-            print_error "Failed to register MCP server"
-            print_info "You can try manually registering with:"
-            echo "  claude mcp add \"$MCP_NAME\" \"$CE_MCP_COMMAND\" -- --config \"$CONFIG_PATH\""
-            exit 1
+            if claude mcp add "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH" >/dev/null 2>&1; then
+                print_success "MCP server registered successfully with Claude"
+            else
+                print_error "Failed to register MCP server"
+                print_info "You can try manually registering with:"
+                echo "  claude mcp add \"$MCP_NAME\" \"$CE_MCP_COMMAND\" -- --config \"$CONFIG_PATH\""
+                exit 1
+            fi
         fi
     else
-        if claude mcp add "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH"; then
-            print_success "MCP server registered successfully with Claude"
+        if [[ "$GLOBAL_MCP" == true ]]; then
+            if claude mcp add --scope user "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH"; then
+                print_success "MCP server registered successfully with Claude"
+            else
+                print_error "Failed to register MCP server"
+                print_info "You can try manually registering with:"
+                echo "  claude mcp add --scope user \"$MCP_NAME\" \"$CE_MCP_COMMAND\" -- --config \"$CONFIG_PATH\""
+                exit 1
+            fi
         else
-            print_error "Failed to register MCP server"
-            print_info "You can try manually registering with:"
-            echo "  claude mcp add \"$MCP_NAME\" \"$CE_MCP_COMMAND\" -- --config \"$CONFIG_PATH\""
-            exit 1
+            if claude mcp add "$MCP_NAME" "$CE_MCP_COMMAND" -- "--config" "$CONFIG_PATH"; then
+                print_success "MCP server registered successfully with Claude"
+            else
+                print_error "Failed to register MCP server"
+                print_info "You can try manually registering with:"
+                echo "  claude mcp add \"$MCP_NAME\" \"$CE_MCP_COMMAND\" -- --config \"$CONFIG_PATH\""
+                exit 1
+            fi
         fi
     fi
 }

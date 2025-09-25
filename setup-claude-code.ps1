@@ -386,26 +386,41 @@ function Register-MCPServer {
 
     # Determine scope message
     if ($GlobalMcp) {
-        Write-Info "Registering MCP server globally..."
+        Write-Info "Registering MCP server globally (user scope)..."
     }
     else {
-        Write-Info "Registering MCP server for this project..."
+        Write-Info "Registering MCP server for this project (local scope)..."
     }
 
     # Register with claude mcp add
     try {
         if ($Quiet) {
-            claude mcp add $mcpName $CE_MCP_COMMAND -- --config $configPath 2>&1 | Out-Null
+            if ($GlobalMcp) {
+                claude mcp add --scope user $mcpName $CE_MCP_COMMAND -- --config $configPath 2>&1 | Out-Null
+            }
+            else {
+                claude mcp add $mcpName $CE_MCP_COMMAND -- --config $configPath 2>&1 | Out-Null
+            }
         }
         else {
-            claude mcp add $mcpName $CE_MCP_COMMAND -- --config $configPath
+            if ($GlobalMcp) {
+                claude mcp add --scope user $mcpName $CE_MCP_COMMAND -- --config $configPath
+            }
+            else {
+                claude mcp add $mcpName $CE_MCP_COMMAND -- --config $configPath
+            }
         }
         Write-Success "MCP server registered successfully with Claude"
     }
     catch {
         Write-ErrorMsg "Failed to register MCP server"
         Write-Info "You can try manually registering with:"
-        Write-Host "  claude mcp add `"$mcpName`" `"$CE_MCP_COMMAND`" -- --config `"$configPath`""
+        if ($GlobalMcp) {
+            Write-Host "  claude mcp add --scope user `"$mcpName`" `"$CE_MCP_COMMAND`" -- --config `"$configPath`""
+        }
+        else {
+            Write-Host "  claude mcp add `"$mcpName`" `"$CE_MCP_COMMAND`" -- --config `"$configPath`""
+        }
         exit 1
     }
 }
