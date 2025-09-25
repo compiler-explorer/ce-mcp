@@ -202,6 +202,11 @@ function Install-MCPServer {
             pipx install $SCRIPT_DIR
             $script:CE_MCP_COMMAND = "ce-mcp"
 
+            # For global installation, we should use global registration by default
+            if (-not $PSBoundParameters.ContainsKey('GlobalMcp')) {
+                $script:GlobalMcp = $true
+                Write-Info "Global installation detected, will use global MCP registration"
+            }
         }
         else {
             Write-Info "Installing in project environment from source: $SCRIPT_DIR"
@@ -283,10 +288,24 @@ ce-mcp @args
 
 # Create project configuration
 function New-ProjectConfig {
-    Write-Step "Creating project configuration..."
-    Push-Location $ProjectDir
+    Write-Step "Creating configuration..."
 
-    Write-Info "Creating project configuration..."
+    # Determine config location based on scope
+    if ($GlobalMcp) {
+        # Use user's home directory for global config
+        $configDir = Join-Path $env:USERPROFILE ".config\compiler_explorer_mcp"
+        if (-not (Test-Path $configDir)) {
+            New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+        }
+        $script:ConfigPath = Join-Path $configDir "config.yaml"
+        Write-Info "Creating global configuration in user directory..."
+    }
+    else {
+        # Use project directory for local config
+        Push-Location $ProjectDir
+        $script:ConfigPath = Join-Path $ProjectDir ".ce-mcp-config.yaml"
+        Write-Info "Creating project configuration..."
+    }
 
     # Set default compiler based on language
     if ([string]::IsNullOrEmpty($Compiler)) {
@@ -328,8 +347,7 @@ function New-ProjectConfig {
         Write-Info "Using language: $Language, compiler: $Compiler"
     }
 
-    # Create configuration file
-    $configPath = Join-Path $ProjectDir ".ce-mcp-config.yaml"
+    # Create configuration file at the determined location
     @"
 # Project-specific Compiler Explorer MCP configuration
 compiler_explorer_mcp:
@@ -361,10 +379,15 @@ compiler_explorer_mcp:
     "rustc": "r1740"
     "go": "gccgo132"
     "python": "python311"
-"@ | Set-Content -Path $configPath
+"@ | Set-Content -Path $script:ConfigPath
 
-    Write-Success "Configuration file created: .ce-mcp-config.yaml"
-    Pop-Location
+    if ($GlobalMcp) {
+        Write-Success "Configuration file created: $script:ConfigPath"
+    }
+    else {
+        Write-Success "Configuration file created: .ce-mcp-config.yaml"
+        Pop-Location
+    }
 }
 
 # Register MCP Server
@@ -381,8 +404,7 @@ function Register-MCPServer {
         claude mcp remove $mcpName 2>&1 | Out-Null
     }
 
-    # Register the MCP server using claude mcp add
-    $configPath = Join-Path $ProjectDir ".ce-mcp-config.yaml"
+    # Use the config path determined by New-ProjectConfig
 
     # Determine scope message
     if ($GlobalMcp) {
@@ -396,18 +418,18 @@ function Register-MCPServer {
     try {
         if ($Quiet) {
             if ($GlobalMcp) {
-                claude mcp add --scope user $mcpName $CE_MCP_COMMAND -- --config $configPath 2>&1 | Out-Null
+                claude mcp add --scope user $mcpName $CE_MCP_COMMAND -- --config $script:ConfigPath 2>&1 | Out-Null
             }
             else {
-                claude mcp add $mcpName $CE_MCP_COMMAND -- --config $configPath 2>&1 | Out-Null
+                claude mcp add $mcpName $CE_MCP_COMMAND -- --config $script:ConfigPath 2>&1 | Out-Null
             }
         }
         else {
             if ($GlobalMcp) {
-                claude mcp add --scope user $mcpName $CE_MCP_COMMAND -- --config $configPath
+                claude mcp add --scope user $mcpName $CE_MCP_COMMAND -- --config $script:ConfigPath
             }
             else {
-                claude mcp add $mcpName $CE_MCP_COMMAND -- --config $configPath
+                claude mcp add $mcpName $CE_MCP_COMMAND -- --config $script:ConfigPath
             }
         }
         Write-Success "MCP server registered successfully with Claude"
@@ -416,10 +438,10 @@ function Register-MCPServer {
         Write-ErrorMsg "Failed to register MCP server"
         Write-Info "You can try manually registering with:"
         if ($GlobalMcp) {
-            Write-Host "  claude mcp add --scope user `"$mcpName`" `"$CE_MCP_COMMAND`" -- --config `"$configPath`""
+            Write-Host "  claude mcp add --scope user `"$mcpName`" `"$CE_MCP_COMMAND`" -- --config `"$script:ConfigPath`""
         }
         else {
-            Write-Host "  claude mcp add `"$mcpName`" `"$CE_MCP_COMMAND`" -- --config `"$configPath`""
+            Write-Host "  claude mcp add `"$mcpName`" `"$CE_MCP_COMMAND`" -- --config `"$script:ConfigPath`""
         }
         exit 1
     }
@@ -482,12 +504,16 @@ function Test-Installation {
     }
 
     # Check configuration file
-    $configPath = Join-Path $ProjectDir ".ce-mcp-config.yaml"
-    if (Test-Path $configPath) {
-        Write-Success "Configuration file exists: .ce-mcp-config.yaml"
+    if (Test-Path $script:ConfigPath) {
+        if ($GlobalMcp) {
+            Write-Success "Global configuration file exists: $script:ConfigPath"
+        }
+        else {
+            Write-Success "Configuration file exists: .ce-mcp-config.yaml"
+        }
     }
     else {
-        Write-ErrorMsg "Configuration file missing"
+        Write-ErrorMsg "Configuration file missing at: $script:ConfigPath"
         exit 1
     }
 

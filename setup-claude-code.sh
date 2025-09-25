@@ -76,6 +76,7 @@ main() {
                 ;;
             --global-mcp)
                 GLOBAL_MCP=true
+                GLOBAL_MCP_SET=true
                 shift
                 ;;
             --non-interactive)
@@ -236,6 +237,12 @@ install_mcp_server() {
             pipx install "$SCRIPT_DIR"
             CE_MCP_COMMAND="ce-mcp"
 
+            # For global installation, we should use global registration by default
+            if [[ -z "$GLOBAL_MCP_SET" ]]; then
+                GLOBAL_MCP=true
+                print_info "Global installation detected, will use global MCP registration"
+            fi
+
         else
             print_info "Installing in project environment from source: $SCRIPT_DIR"
             cd "$PROJECT_DIR"
@@ -298,10 +305,19 @@ EOF
 }
 
 create_project_config() {
-    cd "$PROJECT_DIR"
-
-    # Create .ce-mcp-config.yaml with interactive prompts
-    print_info "Creating project configuration..."
+    # Determine config location based on scope
+    if [[ "$GLOBAL_MCP" == true ]]; then
+        # Use user's home directory for global config
+        CONFIG_DIR="$HOME/.config/compiler_explorer_mcp"
+        mkdir -p "$CONFIG_DIR"
+        CONFIG_PATH="$CONFIG_DIR/config.yaml"
+        print_info "Creating global configuration in user directory..."
+    else
+        # Use project directory for local config
+        cd "$PROJECT_DIR"
+        CONFIG_PATH="$PROJECT_DIR/.ce-mcp-config.yaml"
+        print_info "Creating project configuration..."
+    fi
 
     if [[ "$NON_INTERACTIVE" == false ]] && [[ "$QUIET" != true ]]; then
         # Ask for default language
@@ -351,8 +367,8 @@ create_project_config() {
         print_info "Using language: $DEFAULT_LANG, compiler: $DEFAULT_COMPILER"
     fi
 
-    # Create configuration file
-    cat > "$PROJECT_DIR/.ce-mcp-config.yaml" << EOF
+    # Create configuration file at the determined location
+    cat > "$CONFIG_PATH" << EOF
 # Project-specific Compiler Explorer MCP configuration
 compiler_explorer_mcp:
   api:
@@ -385,7 +401,11 @@ compiler_explorer_mcp:
     "python": "python311"
 EOF
 
-    print_success "Configuration file created: .ce-mcp-config.yaml"
+    if [[ "$GLOBAL_MCP" == true ]]; then
+        print_success "Configuration file created: $CONFIG_PATH"
+    else
+        print_success "Configuration file created: .ce-mcp-config.yaml"
+    fi
 }
 
 register_mcp_server() {
@@ -398,7 +418,7 @@ register_mcp_server() {
 
     # Register the MCP server using claude mcp add
     # The arguments after the command are passed to the MCP server
-    CONFIG_PATH="$PROJECT_DIR/.ce-mcp-config.yaml"
+    # CONFIG_PATH is already set by create_project_config
 
     # Determine scope message
     if [[ "$GLOBAL_MCP" == true ]]; then
@@ -496,10 +516,14 @@ verify_installation() {
     fi
 
     # Check configuration file
-    if [[ -f "$PROJECT_DIR/.ce-mcp-config.yaml" ]]; then
-        print_success "Configuration file exists: .ce-mcp-config.yaml"
+    if [[ -f "$CONFIG_PATH" ]]; then
+        if [[ "$GLOBAL_MCP" == true ]]; then
+            print_success "Global configuration file exists: $CONFIG_PATH"
+        else
+            print_success "Configuration file exists: .ce-mcp-config.yaml"
+        fi
     else
-        print_error "Configuration file missing"
+        print_error "Configuration file missing at: $CONFIG_PATH"
         exit 1
     fi
 }
