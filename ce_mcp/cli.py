@@ -23,13 +23,37 @@ from .server import create_server
     is_flag=True,
     help="Enable verbose logging",
 )
-def main(config_path: Path, verbose: bool) -> None:
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Enable debug logging (more verbose than --verbose)",
+)
+def main(config_path: Path, verbose: bool, debug: bool) -> None:
     """Run the Compiler Explorer MCP server."""
     # Set up logging
-    logging.basicConfig(
-        level=logging.DEBUG if verbose else logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    if debug:
+        log_level = logging.DEBUG
+        # Enable more detailed logging for debug mode
+        logging.basicConfig(
+            level=log_level,
+            format="%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s",
+        )
+        # Enable debug logging for aiohttp and asyncio
+        logging.getLogger("aiohttp").setLevel(logging.DEBUG)
+        logging.getLogger("asyncio").setLevel(logging.DEBUG)
+        logging.getLogger("ce_mcp").setLevel(logging.DEBUG)
+    elif verbose:
+        log_level = logging.DEBUG
+        logging.basicConfig(
+            level=log_level,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
+    else:
+        log_level = logging.INFO
+        logging.basicConfig(
+            level=log_level,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
 
     logger = logging.getLogger(__name__)
 
