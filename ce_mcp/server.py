@@ -404,7 +404,7 @@ async def get_libraries_tool(
         language: Programming language (default: c++)
         search_text: Filter libraries by text search in names and IDs (optional)
 
-    Returns token-efficient library list. Use get_library_details_tool for full library information.
+    Returns simplified library list. Use get_library_details_tool for full library information.
     """
     result = await get_libraries_list(
         {
@@ -448,7 +448,7 @@ async def get_languages_tool(
     Args:
         search_text: Filter languages by text search in names and IDs (optional)
 
-    Returns: Token-efficient language list for discovery. Use specific language names in other tools.
+    Returns: Simplified language list for discovery. Use specific language names in other tools.
     """
     result = await get_languages_list(
         {
