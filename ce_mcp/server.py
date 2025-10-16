@@ -43,6 +43,8 @@ async def compile_check_tool(
 ) -> str:
     """Check if code compiles without executing it.
 
+    Fast syntax validation for CI checks, code review, and debugging.
+
     Args:
         source: Source code to compile
         language: Programming language (c++, c, rust, go, python, etc.)
@@ -54,6 +56,10 @@ async def compile_check_tool(
         create_object_only: Create object file without linking
 
     Returns: {success, exit_code, error_count, warning_count, first_error}
+
+    Example: compile_check_tool(source="int main(){return 0;}", language="c++", compiler="g132")
+
+    Use for fast validation without execution. Use compile_and_run_tool when you need program output.
     """
     result = await compile_check(
         {
@@ -87,6 +93,8 @@ async def compile_and_run_tool(
 ) -> str:
     """Compile and execute code, capturing output and execution results.
 
+    Test algorithms, debug programs, validate behavior with different inputs.
+
     Args:
         source: Source code to compile and run
         language: Programming language (c++, c, rust, go, python, etc.)
@@ -101,6 +109,10 @@ async def compile_and_run_tool(
         create_object_only: Create object file without linking
 
     Returns: {compiled, executed, exit_code, execution_time_ms, stdout, stderr, truncated}
+
+    Example: compile_and_run_tool(source="#include <iostream>\nint main(){std::cout<<\"Hi\";}", language="c++", compiler="g132")
+
+    Use when you need program output. Use compile_check_tool for fast validation only.
     """
     if args is None:
         args = []
@@ -137,6 +149,8 @@ async def compile_with_diagnostics_tool(
 ) -> str:
     """Get detailed compilation warnings and errors with line numbers.
 
+    Code analysis, debugging compilation issues, static analysis.
+
     Args:
         source: Source code to analyze
         language: Programming language (c++, c, rust, go, etc.)
@@ -149,6 +163,8 @@ async def compile_with_diagnostics_tool(
         create_object_only: Create object file without linking
 
     Returns: {success, diagnostics: [{type, line, column, message, suggestion}], command}
+
+    Use for detailed error analysis. Use compile_check_tool for quick pass/fail validation.
     """
     result = await compile_with_diagnostics(
         {
@@ -182,6 +198,8 @@ async def analyze_optimization_tool(
 ) -> str:
     """Analyze generated assembly code to understand compiler optimizations.
 
+    Performance investigation, optimization validation, learning compiler behavior.
+
     Args:
         source: Source code to analyze
         language: Programming language (c++, c, rust, go, etc.)
@@ -195,6 +213,13 @@ async def analyze_optimization_tool(
         libraries: Libraries list [{"id": "name", "version": "latest"}]
 
     Returns: {assembly_lines, instruction_count, assembly_output, truncated, total_instructions, optimization_remarks}
+
+    Assembly Analysis Patterns:
+    - Vectorization: Look for SIMD instructions (movdqu, vpaddd on x86; ld1, add.4s on ARM)
+    - Inlining: Absence of call/bl/jal instructions for expected function calls
+    - Loop optimizations: Unrolling patterns, memcpy conversion, strength reduction
+
+    Use to understand compiler optimizations. Use compile_and_run_tool for performance testing.
     """
     result = await analyze_optimization(
         {
@@ -232,6 +257,8 @@ async def compare_compilers_tool(
         libraries: Libraries list [{"id": "name", "version": "latest"}]
 
     Returns: Comparison results based on type (diffs for execution, side-by-side for assembly)
+
+    Use to compare behavior across compilers. Use individual tools for single compiler analysis.
     """
     result = await compare_compilers(
         {
@@ -260,6 +287,8 @@ async def generate_share_url_tool(
 ) -> str:
     """Generate shareable Compiler Explorer URL with code and settings.
 
+    Create URLs for bug reports, collaboration, education, performance discussions.
+
     Args:
         source: Source code to include
         language: Programming language (c++, c, rust, go, python, etc.)
@@ -272,6 +301,8 @@ async def generate_share_url_tool(
         create_object_only: Create object file without linking
 
     Returns: {url: shareable Compiler Explorer URL}
+
+    Example: generate_share_url_tool(source="int main(){}", language="c++", compiler="g132", options="-std=c++20")
     """
     result = await generate_share_url(
         {
@@ -306,34 +337,24 @@ async def find_compilers_tool(
 ) -> str:
     """Find compilers with optional filtering by experimental features, proposals, or tools.
 
-    ⚠️  AVOID generic searches like 'gcc' or 'clang' - they exceed token limits (25k+).
+    ⚠️  CRITICAL: AVOID generic searches like 'gcc' or 'clang' - they exceed token limits (25k+).
     Use specific terms: 'gcc 13', 'x86-64 gcc', or exact compiler IDs with exact_search=True.
 
     Args:
         language: Programming language (default: c++)
-        proposal: Specific proposal number to search for (e.g., 'P3385', '3385')
-        feature: Experimental feature to search for (e.g., 'reflection', 'concepts', 'modules')
-        category: Category to filter by (e.g., 'proposals', 'reflection', 'concepts')
+        proposal: Specific proposal number (e.g., 'P3385', '3385')
+        feature: Experimental feature (e.g., 'reflection', 'concepts', 'modules')
+        category: Category filter (e.g., 'proposals', 'reflection', 'concepts')
         show_all: Show all experimental compilers organized by category
-        search_text: Filter compilers by text search in compiler names and IDs (should be compiler-related keywords like "gcc 13", "clang17", "msvc", "nightly")
-        exact_search: If True, search_text is treated as an exact compiler ID match (case-sensitive)
-        ids_only: Return only compiler IDs (use sparingly, only when search_text isn't sufficient)
-        include_overrides: Include possibleOverrides field for architecture discovery (increases output significantly)
-        include_runtime_tools: Include possibleRuntimeTools field for runtime tool discovery (increases output significantly)
-        include_compile_tools: Include tools field for compile-time tool discovery (increases output significantly; requires specific compiler ID in search_text)
+        search_text: Filter by compiler names/IDs (use specific terms like "gcc 13", "clang17", "msvc")
+        exact_search: Treat search_text as exact compiler ID match (case-sensitive)
+        ids_only: Return only compiler IDs (use sparingly)
+        include_overrides: Include architecture discovery info (increases output significantly)
+        include_runtime_tools: Include runtime tool discovery (increases output significantly)
+        include_compile_tools: Include compile-time tool discovery (increases output significantly)
 
-    Examples:
-        - Find all C++ compilers: language="c++"
-        - Find GCC 13 compilers: search_text="gcc 13"
-        - Find MSVC compilers: search_text="msvc"
-        - Find P3385 proposal compilers: proposal="P3385"
-        - Find reflection feature compilers: feature="reflection"
-        - Find nightly/experimental compilers: search_text="nightly"
-        - Get only compiler IDs for MSVC (if needed): search_text="msvc", ids_only=True
-        - Get GCC with architecture overrides: search_text="gcc", include_overrides=True
-        - Get clang 17 with runtime tools: search_text="clang1701", include_runtime_tools=True
-        - Get GCC 13.2 with compile tools: search_text="g132", include_compile_tools=True
-        - Find exact compiler by ID: search_text="clang1600", exact_search=True
+    Valid Examples: "gcc 13", "clang 17", "msvc", "nightly", "g132", "clang1600"
+    Invalid Examples: "gcc", "clang", "g++", "clang++"
     """
     # Validate search_text to prevent overly broad searches that exceed token limits
     if search_text and not exact_search:
@@ -383,11 +404,7 @@ async def get_libraries_tool(
         language: Programming language (default: c++)
         search_text: Filter libraries by text search in names and IDs (optional)
 
-    Examples:
-        - Get all C++ libraries: language="c++"
-        - Search for boost libraries: language="c++", search_text="boost"
-        - Search for format libraries: language="c++", search_text="fmt"
-        - Get Rust libraries: language="rust"
+    Returns token-efficient library list. Use get_library_details_tool for full library information.
     """
     result = await get_libraries_list(
         {
@@ -410,11 +427,7 @@ async def get_library_details_tool(
         language: Programming language (default: c++)
         library_id: The ID of the library to get details for (required)
 
-    Examples:
-        - Get boost details: language="c++", library_id="boost"
-        - Get fmt details: language="c++", library_id="fmt"
-        - Get range-v3 details: language="c++", library_id="range-v3"
-        - Get Rust crate details: language="rust", library_id="serde"
+    Returns: Complete library information including all available versions and usage details.
     """
     result = await get_library_details_info(
         {
@@ -435,11 +448,7 @@ async def get_languages_tool(
     Args:
         search_text: Filter languages by text search in names and IDs (optional)
 
-    Examples:
-        - Get all languages: (no arguments)
-        - Search for C languages: search_text="c"
-        - Search for JavaScript/TypeScript: search_text="script"
-        - Search for Python: search_text="python"
+    Returns: Token-efficient language list for discovery. Use specific language names in other tools.
     """
     result = await get_languages_list(
         {
@@ -458,6 +467,8 @@ async def lookup_instruction_tool(
 ) -> str:
     """Get documentation for assembly instructions/opcodes.
 
+    Understand instruction behavior during assembly analysis or debugging.
+
     Args:
         instruction_set: Architecture ("amd64"/"x86_64", "aarch64"/"arm64", "mips", "riscv")
         opcode: Instruction to look up (e.g., "pop", "stp", "mov", "add")
@@ -466,6 +477,10 @@ async def lookup_instruction_tool(
     Returns: {found, instruction_set, opcode, documentation, formatted_docs, error}
 
     Supports alias resolution (x64→amd64, arm64→aarch64) and case-insensitive lookups.
+
+    Example: lookup_instruction_tool(instruction_set="amd64", opcode="pop")
+
+    Use with analyze_optimization_tool to understand generated assembly instructions.
     """
     result = await lookup_instruction(
         {
@@ -489,6 +504,8 @@ async def download_shortlink_tool(
 ) -> str:
     """Download source code from Compiler Explorer shortlink to local files.
 
+    Extract code examples, analyze shared configurations, integrate CE examples into projects.
+
     Args:
         shortlink_url: Full CE URL or just ID (e.g., "G38YP7eW4")
         destination_path: Directory where files should be saved
@@ -499,7 +516,10 @@ async def download_shortlink_tool(
 
     Returns: {saved_files, metadata_file, summary, error}
 
-    Preserves original filenames, handles multi-file projects, saves compiler configs.
+    File naming: Preserves original names (example.cpp), generates names for anonymous files (ce_001.cpp),
+    resolves conflicts with numbers (example_1.cpp, example_2.cpp).
+
+    Example: download_shortlink_tool("https://godbolt.org/z/G38YP7eW4", ".")
     """
     result = await download_shortlink(
         {
