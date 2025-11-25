@@ -362,7 +362,6 @@ async def analyze_optimization_tool(
     language: str,
     compiler: str,
     optimization_level: str = "-O3",
-    analysis_type: str = "all",
     include_optimization_remarks: bool = True,
     filter_out_library_code: bool | None = None,
     filter_out_debug_calls: bool | None = None,
@@ -390,7 +389,6 @@ async def analyze_optimization_tool(
     - language: Programming language (c++, c, rust, go, etc.)
     - compiler: Compiler identifier (e.g., "g132", "clang1600") or friendly name
     - optimization_level: Optimization flags (e.g., "-O0", "-O2", "-O3", "-Os", "-Ofast")
-    - analysis_type: Focus of analysis ("all", "vectorization", "inlining", "loops")
     - include_optimization_remarks: Include compiler optimization remarks/passes in output
     - filter_out_library_code: Hide standard library implementations for cleaner output
     - filter_out_debug_calls: Hide debug and profiling function calls
@@ -439,8 +437,7 @@ async def analyze_optimization_tool(
         "source": "float dot_product(float* a, float* b, int n) { float sum=0; for(int i=0; i<n; i++) sum += a[i]*b[i]; return sum; }",
         "language": "c++",
         "compiler": "clang1600",
-        "optimization_level": "-O3 -march=native",
-        "analysis_type": "vectorization"
+        "optimization_level": "-O3 -march=native"
     })
     ```
 
@@ -478,7 +475,6 @@ async def analyze_optimization_tool(
             "language": language,
             "compiler": compiler,
             "optimization_level": optimization_level,
-            "analysis_type": analysis_type,
             "include_optimization_remarks": include_optimization_remarks,
             "filter_out_library_code": filter_out_library_code,
             "filter_out_debug_calls": filter_out_debug_calls,

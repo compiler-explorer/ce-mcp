@@ -56,7 +56,6 @@ Examines generated assembly code to detect optimizations like vectorization, inl
 **Key Parameters**:
 - All compile_check_tool parameters plus:
 - `optimization_level` - Optimization flags (-O0, -O2, -O3, -Os, -Ofast)
-- `analysis_type` - Focus area ("all", "vectorization", "inlining", "loops")
 - `filter_out_library_code` - Hide standard library code (default: null)
 - `do_demangle` - Convert C++ symbols to readable names (default: null)
 

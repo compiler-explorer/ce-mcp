@@ -249,7 +249,6 @@ class TestTools:
                 "language": "c++",
                 "compiler": "g++",
                 "optimization_level": "-O3",
-                "analysis_type": "all",
             },
             config,
         )
