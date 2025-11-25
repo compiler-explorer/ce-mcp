@@ -34,8 +34,10 @@ class CompilerExplorerClient:
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
         if self.session is None:
+            logger.debug(f"Creating new aiohttp session with timeout={self.config.api.timeout}s")
             timeout = ClientTimeout(total=self.config.api.timeout)
             self.connector = aiohttp.TCPConnector(limit=10, limit_per_host=5)
+            logger.debug(f"Created TCP connector with limits: total=10, per_host=5")
             self.session = aiohttp.ClientSession(
                 headers={
                     "User-Agent": self.config.api.user_agent,
@@ -44,6 +46,7 @@ class CompilerExplorerClient:
                 timeout=timeout,
                 connector=self.connector,
             )
+            logger.debug(f"Created aiohttp session with headers: User-Agent={self.config.api.user_agent}")
         return self.session
 
     async def close(self) -> None:
@@ -88,6 +91,7 @@ class CompilerExplorerClient:
         produce_opt_info: bool = False,
     ) -> Dict[str, Any]:
         """Compile source code."""
+        logger.debug(f"Starting compilation request for {language} with {compiler}")
         session = await self._get_session()
 
         payload = {
@@ -170,12 +174,26 @@ class CompilerExplorerClient:
 
         url = f"{self.config.api.endpoint}/compiler/{compiler}/compile"
 
+        logger.debug(f"Making POST request to: {url}")
+        logger.debug(f"Request payload size: {len(str(payload))} characters")
+        logger.debug(f"Compiler: {compiler}, Language: {language}, Options: {options}")
+
         try:
+            logger.debug("Starting HTTP POST request...")
             async with session.post(url, json=payload) as response:
+                logger.debug(f"Received HTTP response: {response.status}")
                 response.raise_for_status()
-                return await response.json()  # type: ignore[no-any-return]
+                logger.debug("HTTP request successful, parsing JSON response...")
+                result = await response.json()
+                logger.debug(f"Received response size: {len(str(result))} characters")
+                return result  # type: ignore[no-any-return]
         except ClientError as e:
             logger.error(f"API request failed: {e}")
+            logger.debug(f"Full error details: {repr(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error during HTTP request: {e}")
+            logger.debug(f"Full error details: {repr(e)}")
             raise
 
     async def compile_and_execute(
