@@ -274,6 +274,58 @@ class CompilerExplorerClient:
             logger.error(f"API request failed: {e}")
             raise
 
+    async def cmake_build(
+        self,
+        cmake_source: str,
+        files: List[Dict[str, str]],
+        language: str,
+        compiler: str,
+        options: str = "",
+        cmake_args: str = "",
+        execute: bool = False,
+        libraries: List[Dict[str, str]] | None = None,
+    ) -> Dict[str, Any]:
+        """Build a CMake project with multiple files."""
+        session = await self._get_session()
+
+        payload = {
+            "source": cmake_source,
+            "files": files,
+            "options": {
+                "userArguments": options,
+                "compilerOptions": {
+                    "executorRequest": execute,
+                    "cmakeArgs": cmake_args,
+                    "customOutputFilename": "",
+                },
+                "filters": {
+                    "binary": self.config.filters.binary,
+                    "binaryObject": self.config.filters.binaryObject,
+                    "commentOnly": self.config.filters.commentOnly,
+                    "demangle": self.config.filters.demangle,
+                    "directives": self.config.filters.directives,
+                    "execute": execute,
+                    "intel": self.config.filters.intel,
+                    "labels": self.config.filters.labels,
+                    "libraryCode": self.config.filters.libraryCode,
+                    "trim": self.config.filters.trim,
+                    "debugCalls": self.config.filters.debugCalls,
+                },
+                "tools": [],
+                "libraries": libraries or [],
+            },
+        }
+
+        url = f"{self.config.api.endpoint}/compiler/{compiler}/cmake"
+
+        try:
+            async with session.post(url, json=payload) as response:
+                response.raise_for_status()
+                return await response.json()  # type: ignore[no-any-return]
+        except ClientError as e:
+            logger.error(f"CMake API request failed: {e}")
+            raise
+
     async def create_short_link(
         self,
         source: str,
@@ -328,6 +380,112 @@ class CompilerExplorerClient:
                 return str(result.get("url", ""))
         except ClientError as e:
             logger.error(f"Failed to create short link: {e}")
+            raise
+
+    async def create_cmake_short_link(
+        self,
+        cmake_source: str,
+        files: List[Dict[str, str]],
+        language: str,
+        compiler: str,
+        options: str = "",
+        cmake_args: str = "",
+        libraries: List[Dict[str, str]] | None = None,
+    ) -> str:
+        """Create a short link for a CMake multifile project."""
+        session = await self._get_session()
+
+        # Build tree file entries: source files + CMakeLists.txt
+        file_id = 1
+        tree_files = []
+        for f in files:
+            tree_files.append(
+                {
+                    "fileId": file_id,
+                    "isIncluded": True,
+                    "isOpen": False,
+                    "isMainSource": False,
+                    "filename": f["filename"],
+                    "content": f["contents"],
+                    "editorId": -1,
+                    "langId": language,
+                }
+            )
+            file_id += 1
+
+        # CMakeLists.txt is the "main source" in the tree, with editorId=1
+        tree_files.append(
+            {
+                "fileId": file_id,
+                "isIncluded": True,
+                "isOpen": True,
+                "isMainSource": True,
+                "filename": "CMakeLists.txt",
+                "content": cmake_source,
+                "editorId": 1,
+                "langId": "cmake",
+            }
+        )
+        file_id += 1
+
+        compiler_config: Dict[str, Any] = {
+            "id": compiler,
+            "options": options,
+            "libs": libraries or [],
+            "tools": [],
+            "specialoutputs": [],
+            "filters": {
+                "binary": self.config.filters.binary,
+                "binaryObject": self.config.filters.binaryObject,
+                "commentOnly": self.config.filters.commentOnly,
+                "demangle": self.config.filters.demangle,
+                "directives": self.config.filters.directives,
+                "execute": False,
+                "intel": self.config.filters.intel,
+                "labels": self.config.filters.labels,
+                "libraryCode": self.config.filters.libraryCode,
+                "trim": self.config.filters.trim,
+                "debugCalls": self.config.filters.debugCalls,
+            },
+            "overrides": [],
+        }
+
+        tree_config = {
+            "sessions": [
+                {
+                    "id": 1,
+                    "language": "cmake",
+                    "source": cmake_source,
+                    "conformanceview": False,
+                    "compilers": [],
+                    "executors": [],
+                    "filename": "CMakeLists.txt",
+                }
+            ],
+            "trees": [
+                {
+                    "id": 1,
+                    "cmakeArgs": cmake_args,
+                    "customOutputFilename": "",
+                    "isCMakeProject": True,
+                    "compilerLanguageId": language,
+                    "files": tree_files,
+                    "newFileId": file_id,
+                    "compilers": [compiler_config],
+                    "executors": [],
+                }
+            ],
+        }
+
+        url = f"{self.config.api.endpoint}/shortener"
+
+        try:
+            async with session.post(url, json=tree_config) as response:
+                response.raise_for_status()
+                result = await response.json()
+                return str(result.get("url", ""))
+        except ClientError as e:
+            logger.error(f"Failed to create CMake short link: {e}")
             raise
 
     async def get_languages(self) -> List[Dict[str, Any]]:

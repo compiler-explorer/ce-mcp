@@ -1379,112 +1379,159 @@ async def download_shortlink(arguments: Dict[str, Any], config: Config) -> Dict[
         if not shortlink_data or "sessions" not in shortlink_data:
             return {"error": f"No data found for shortlink {link_id}"}
 
-        sessions = shortlink_data["sessions"]
-        if not sessions:
-            return {"error": f"No sessions found in shortlink {link_id}"}
+        sessions = shortlink_data.get("sessions", [])
+        top_level_trees = shortlink_data.get("trees", [])
 
         files_saved = []
         metadata_files = []
 
-        for session_idx, session in enumerate(sessions, 1):
-            language = session.get("language", "unknown")
-            source = session.get("source", "")
-
-            # Check if there are named files in the session first
-            trees = session.get("trees", [])
-            has_tree_files = (
-                trees
-                and isinstance(trees, list)
-                and len(trees) > 0
-                and isinstance(trees[0], dict)
-                and "files" in trees[0]
-                and trees[0]["files"]
-            )
-
-            # Skip if no source and no tree files
-            if not source.strip() and not has_tree_files:
+        # Process top-level trees (CMake multifile projects)
+        for tree in top_level_trees:
+            if not isinstance(tree, dict) or "files" not in tree:
                 continue
+            tree_language = tree.get("compilerLanguageId", "unknown")
+            for file_idx, file_data in enumerate(tree.get("files", []), 1):
+                if not isinstance(file_data, dict):
+                    continue
+                file_source = file_data.get("content", "") or file_data.get("contents", "")
+                if not file_source.strip():
+                    continue
 
-            # Process tree files if available
-            if has_tree_files:
-                # Handle named files from tree structure
-                tree = trees[0]  # Usually one tree per session
-                if isinstance(tree, dict) and "files" in tree:
-                    files = tree["files"]
-                    for file_idx, file_data in enumerate(files, 1):
-                        if isinstance(file_data, dict):
-                            file_source = file_data.get("content", "")
-                            if not file_source.strip():
-                                continue
+                original_name = file_data.get("filename") or file_data.get("name")
+                is_main = file_data.get("isMainSource", False)
+                file_lang = str(file_data.get("langId", tree_language))
 
-                            original_name = file_data.get("filename") or file_data.get("name")
-                            is_main = file_data.get("isMainSource", False)
+                if preserve_filenames and original_name:
+                    filename = original_name
+                else:
+                    filename = await generate_filename(
+                        original_name, file_lang, file_idx, fallback_prefix, is_main, client
+                    )
 
-                            # Generate filename
-                            if preserve_filenames and original_name:
-                                filename = original_name
-                            else:
-                                filename = await generate_filename(
-                                    original_name, language, file_idx, fallback_prefix, is_main, client
-                                )
-
-                            # Resolve conflicts if not overwriting
-                            if not overwrite_existing:
-                                filename = resolve_filename_conflicts(dest_path, filename)
-
-                            # Save file
-                            file_path = dest_path / filename
-                            try:
-                                with open(file_path, "w", encoding="utf-8") as f:
-                                    f.write(file_source)
-
-                                files_saved.append(
-                                    {
-                                        "original_name": original_name,
-                                        "saved_as": filename,
-                                        "language": language,
-                                        "is_main_source": is_main,
-                                        "size_bytes": len(file_source.encode("utf-8")),
-                                        "lines": len(file_source.splitlines()),
-                                    }
-                                )
-                            except Exception as e:
-                                return {"error": f"Failed to save file {filename}: {str(e)}"}
-            else:
-                # Handle single source code (no tree structure)
-                # Check for session-level filename
-                session_filename = session.get("filename")
-                filename = await generate_filename(
-                    session_filename,  # Use session filename if available
-                    language,
-                    session_idx,
-                    fallback_prefix,
-                    True,  # Assume main source for single files
-                    client,
-                )
-
-                # Resolve conflicts if not overwriting
                 if not overwrite_existing:
                     filename = resolve_filename_conflicts(dest_path, filename)
 
-                # Save file
                 file_path = dest_path / filename
                 try:
                     with open(file_path, "w", encoding="utf-8") as f:
-                        f.write(source)
-
+                        f.write(file_source)
                     files_saved.append(
                         {
-                            "original_name": session_filename,
+                            "original_name": original_name,
                             "saved_as": filename,
-                            "language": language,
-                            "is_main_source": True,
-                            "size_bytes": len(source.encode("utf-8")),
-                            "lines": len(source.splitlines()),
+                            "language": file_lang,
+                            "is_main_source": is_main,
+                            "size_bytes": len(file_source.encode("utf-8")),
+                            "lines": len(file_source.splitlines()),
                         }
                     )
                 except Exception as e:
                     return {"error": f"Failed to save file {filename}: {str(e)}"}
+
+        if not sessions:
+            if not files_saved:
+                return {"error": f"No sessions or trees found in shortlink {link_id}"}
+        else:
+            # Process sessions (single-file and session-embedded tree projects)
+            for session_idx, session in enumerate(sessions, 1):
+                language = session.get("language", "unknown")
+                source = session.get("source", "")
+
+                # Check if there are named files in the session first
+                trees = session.get("trees", [])
+                has_tree_files = (
+                    trees
+                    and isinstance(trees, list)
+                    and len(trees) > 0
+                    and isinstance(trees[0], dict)
+                    and "files" in trees[0]
+                    and trees[0]["files"]
+                )
+
+                # Skip if no source and no tree files
+                if not source.strip() and not has_tree_files:
+                    continue
+
+                # Process tree files if available
+                if has_tree_files:
+                    # Handle named files from tree structure
+                    tree = trees[0]  # Usually one tree per session
+                    if isinstance(tree, dict) and "files" in tree:
+                        files = tree["files"]
+                        for file_idx, file_data in enumerate(files, 1):
+                            if isinstance(file_data, dict):
+                                file_source = file_data.get("content", "") or file_data.get("contents", "")
+                                if not file_source.strip():
+                                    continue
+
+                                original_name = file_data.get("filename") or file_data.get("name")
+                                is_main = file_data.get("isMainSource", False)
+
+                                # Generate filename
+                                if preserve_filenames and original_name:
+                                    filename = original_name
+                                else:
+                                    filename = await generate_filename(
+                                        original_name, language, file_idx, fallback_prefix, is_main, client
+                                    )
+
+                                # Resolve conflicts if not overwriting
+                                if not overwrite_existing:
+                                    filename = resolve_filename_conflicts(dest_path, filename)
+
+                                # Save file
+                                file_path = dest_path / filename
+                                try:
+                                    with open(file_path, "w", encoding="utf-8") as f:
+                                        f.write(file_source)
+
+                                    files_saved.append(
+                                        {
+                                            "original_name": original_name,
+                                            "saved_as": filename,
+                                            "language": language,
+                                            "is_main_source": is_main,
+                                            "size_bytes": len(file_source.encode("utf-8")),
+                                            "lines": len(file_source.splitlines()),
+                                        }
+                                    )
+                                except Exception as e:
+                                    return {"error": f"Failed to save file {filename}: {str(e)}"}
+                else:
+                    # Handle single source code (no tree structure)
+                    # Check for session-level filename
+                    session_filename = session.get("filename")
+                    filename = await generate_filename(
+                        session_filename,  # Use session filename if available
+                        language,
+                        session_idx,
+                        fallback_prefix,
+                        True,  # Assume main source for single files
+                        client,
+                    )
+
+                    # Resolve conflicts if not overwriting
+                    if not overwrite_existing:
+                        filename = resolve_filename_conflicts(dest_path, filename)
+
+                    # Save file
+                    file_path = dest_path / filename
+                    try:
+                        with open(file_path, "w", encoding="utf-8") as f:
+                            f.write(source)
+
+                        files_saved.append(
+                            {
+                                "original_name": session_filename,
+                                "saved_as": filename,
+                                "language": language,
+                                "is_main_source": True,
+                                "size_bytes": len(source.encode("utf-8")),
+                                "lines": len(source.splitlines()),
+                            }
+                        )
+                    except Exception as e:
+                        return {"error": f"Failed to save file {filename}: {str(e)}"}
 
         # Save metadata if requested
         if include_metadata and files_saved:
@@ -1492,19 +1539,31 @@ async def download_shortlink(arguments: Dict[str, Any], config: Config) -> Dict[
             if not overwrite_existing:
                 metadata_filename = resolve_filename_conflicts(dest_path, metadata_filename)
 
-            metadata = {
+            metadata: Dict[str, Any] = {
                 "shortlink_id": link_id,
                 "shortlink_url": shortlink_url,
-                "sessions": [
+                "download_timestamp": time.time(),
+                "files_count": len(files_saved),
+            }
+            if sessions:
+                metadata["sessions"] = [
                     {
                         "language": session.get("language"),
                         "compilers": session.get("compilers", []),
                     }
                     for session in sessions
-                ],
-                "download_timestamp": time.time(),
-                "files_count": len(files_saved),
-            }
+                    if session.get("source", "").strip() or session.get("compilers")
+                ]
+            if top_level_trees:
+                metadata["trees"] = [
+                    {
+                        "language": tree.get("compilerLanguageId"),
+                        "isCMakeProject": tree.get("isCMakeProject", False),
+                        "compilers": tree.get("compilers", []),
+                    }
+                    for tree in top_level_trees
+                    if isinstance(tree, dict)
+                ]
 
             metadata_path = dest_path / metadata_filename
             try:
@@ -1675,3 +1734,224 @@ async def lookup_instruction(arguments: Dict[str, Any], config: Config) -> Dict[
 
     finally:
         await client.close()
+
+
+# Regex pattern to strip ANSI escape codes
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    """Strip ANSI escape codes from text."""
+    return _ANSI_ESCAPE.sub("", text)
+
+
+def _extract_build_step_text(items: Any) -> str:
+    """Extract text from build step stdout/stderr arrays."""
+    if isinstance(items, list):
+        return "\n".join(_strip_ansi(item.get("text", "") if isinstance(item, dict) else str(item)) for item in items)
+    if isinstance(items, str):
+        return _strip_ansi(items)
+    return ""
+
+
+_CMAKE_SOURCE_EXTENSIONS = {
+    ".cpp",
+    ".cxx",
+    ".cc",
+    ".c",
+    ".hpp",
+    ".hxx",
+    ".hh",
+    ".h",
+    ".inl",
+    ".ipp",
+}
+
+
+def _resolve_cmake_inputs(
+    arguments: Dict[str, Any],
+) -> Tuple[str, List[Dict[str, str]]]:
+    """Resolve CMake inputs from inline content, file paths, or a project directory.
+
+    Supports three modes:
+    1. Inline: cmake_source + files with contents
+    2. File paths: cmake_path + files with path field
+    3. Project directory: project_dir auto-discovers CMakeLists.txt and source files
+
+    Returns (cmake_source, files) where files is [{"filename": ..., "contents": ...}].
+    """
+    project_dir = arguments.get("project_dir")
+
+    if project_dir:
+        # Mode 3: auto-discover from project directory
+        project_path = Path(project_dir).resolve()
+        if not project_path.is_dir():
+            raise ValueError(f"project_dir is not a directory: {project_dir}")
+
+        cmake_file = project_path / "CMakeLists.txt"
+        if not cmake_file.is_file():
+            raise ValueError(f"No CMakeLists.txt found in {project_dir}")
+
+        cmake_source = cmake_file.read_text()
+
+        files: List[Dict[str, str]] = []
+        for f in sorted(project_path.rglob("*")):
+            if f.is_file() and f.suffix in _CMAKE_SOURCE_EXTENSIONS:
+                rel = f.relative_to(project_path)
+                files.append({"filename": str(rel), "contents": f.read_text()})
+
+        if not files:
+            raise ValueError(f"No source files found in {project_dir}")
+
+        return cmake_source, files
+
+    # Resolve cmake_source from inline content or path
+    cmake_source_val = arguments.get("cmake_source")
+    cmake_path = arguments.get("cmake_path")
+
+    if cmake_path:
+        p = Path(cmake_path).resolve()
+        if not p.is_file():
+            raise ValueError(f"cmake_path is not a file: {cmake_path}")
+        cmake_source_val = p.read_text()
+    elif not cmake_source_val:
+        raise ValueError("One of cmake_source, cmake_path, or project_dir is required")
+
+    # Resolve files: each entry can have "contents" (inline) or "path" (read from disk)
+    raw_files = arguments.get("files", [])
+    resolved_files: List[Dict[str, str]] = []
+    for entry in raw_files:
+        if "contents" in entry:
+            resolved_files.append({"filename": entry["filename"], "contents": entry["contents"]})
+        elif "path" in entry:
+            file_path = Path(entry["path"]).resolve()
+            if not file_path.is_file():
+                raise ValueError(f"File not found: {entry['path']}")
+            filename = entry.get("filename", file_path.name)
+            resolved_files.append({"filename": filename, "contents": file_path.read_text()})
+        else:
+            raise ValueError(f"File entry must have either 'contents' or 'path': {entry}")
+
+    return cmake_source_val, resolved_files
+
+
+async def cmake_build(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
+    """Build a multifile CMake project."""
+    cmake_source, files = _resolve_cmake_inputs(arguments)
+    language = arguments.get("language", "c++")
+    compiler = config.resolve_compiler(arguments["compiler"])
+    options = arguments.get("options", "")
+    cmake_args = arguments.get("cmake_args", "")
+    execute = arguments.get("execute", False)
+    libraries = arguments.get("libraries")
+
+    client = CompilerExplorerClient(config)
+
+    try:
+        # Resolve libraries if provided
+        resolved_libraries: List[Dict[str, str]] = []
+        if libraries:
+            try:
+                resolved_libraries = await validate_and_resolve_libraries(libraries, language, compiler, client)
+            except LibraryError as e:
+                if isinstance(e, LibraryNotFoundError):
+                    error_msg = str(e)
+                    if "'" in error_msg:
+                        lib_name = error_msg.split("'")[1]
+                        suggestions = await search_libraries(lib_name, language, client)
+                        enhanced_error = format_library_error_with_suggestions(e, lib_name, language, suggestions)
+                        raise LibraryError(enhanced_error)
+                raise
+
+        result = await client.cmake_build(
+            cmake_source=cmake_source,
+            files=files,
+            language=language,
+            compiler=compiler,
+            options=options,
+            cmake_args=cmake_args,
+            execute=execute,
+            libraries=resolved_libraries,
+        )
+    finally:
+        await client.close()
+
+    # Parse build steps
+    build_steps = []
+    all_succeeded = True
+    for step in result.get("buildsteps", []):
+        step_code = step.get("code", -1)
+        if step_code != 0:
+            all_succeeded = False
+        build_steps.append(
+            {
+                "step": step.get("step", "unknown"),
+                "code": step_code,
+                "stdout": _extract_build_step_text(step.get("stdout", [])),
+                "stderr": _extract_build_step_text(step.get("stderr", [])),
+            }
+        )
+
+    # Check overall result code
+    result_code = result.get("code", -1)
+    inner_result = result.get("result", {})
+    if inner_result.get("code", 0) != 0:
+        all_succeeded = False
+
+    response: Dict[str, Any] = {
+        "success": all_succeeded,
+        "build_steps": build_steps,
+    }
+
+    # Execution results
+    if execute:
+        exec_result = result.get("execResult", {})
+        response["executed"] = result.get("didExecute", False)
+        response["exit_code"] = exec_result.get("code", result_code)
+        response["stdout"] = _extract_build_step_text(exec_result.get("stdout", []))
+        response["stderr"] = _extract_build_step_text(exec_result.get("stderr", []))
+        response["execution_time_ms"] = exec_result.get("execTime", 0)
+
+    return response
+
+
+async def generate_cmake_share_url(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
+    """Generate a shareable Compiler Explorer URL for a CMake multifile project."""
+    cmake_source, files = _resolve_cmake_inputs(arguments)
+    language = arguments.get("language", "c++")
+    compiler = config.resolve_compiler(arguments["compiler"])
+    options = arguments.get("options", "")
+    cmake_args = arguments.get("cmake_args", "")
+    libraries = arguments.get("libraries")
+
+    client = CompilerExplorerClient(config)
+
+    try:
+        # Resolve libraries if provided
+        resolved_libraries: List[Dict[str, str]] = []
+        if libraries:
+            try:
+                resolved_libraries = await validate_and_resolve_libraries(libraries, language, compiler, client)
+            except LibraryError as e:
+                if isinstance(e, LibraryNotFoundError):
+                    error_msg = str(e)
+                    if "'" in error_msg:
+                        lib_name = error_msg.split("'")[1]
+                        suggestions = await search_libraries(lib_name, language, client)
+                        enhanced_error = format_library_error_with_suggestions(e, lib_name, language, suggestions)
+                        raise LibraryError(enhanced_error)
+                raise
+
+        url = await client.create_cmake_short_link(
+            cmake_source=cmake_source,
+            files=files,
+            language=language,
+            compiler=compiler,
+            options=options,
+            cmake_args=cmake_args,
+            libraries=resolved_libraries,
+        )
+    finally:
+        await client.close()
+
+    return {"url": url}

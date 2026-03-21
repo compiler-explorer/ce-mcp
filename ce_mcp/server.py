@@ -8,7 +8,9 @@ from mcp.server import FastMCP
 from .config import Config
 from .tools import (
     analyze_optimization,
+    cmake_build,
     compare_compilers,
+    generate_cmake_share_url,
     compile_and_run,
     compile_check,
     compile_with_diagnostics,
@@ -973,6 +975,233 @@ async def download_shortlink_tool(
             "fallback_prefix": fallback_prefix,
             "include_metadata": include_metadata,
             "overwrite_existing": overwrite_existing,
+        },
+        config,
+    )
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+async def cmake_build_tool(
+    compiler: str,
+    cmake_source: str = "",
+    cmake_path: str = "",
+    project_dir: str = "",
+    files: list | None = None,
+    language: str = "c++",
+    options: str = "",
+    cmake_args: str = "",
+    execute: bool = False,
+    libraries: list | None = None,
+) -> str:
+    """Build a multifile CMake project using Compiler Explorer.
+
+    This tool compiles multifile projects that use CMake as the build system.
+    It sends a CMakeLists.txt and associated source files to Compiler Explorer
+    for building and optional execution.
+
+    **Three ways to specify project files (use one):**
+
+    1. **Inline content**: Provide cmake_source + files with "contents" fields
+    2. **Local file paths**: Provide cmake_path + files with "path" fields
+    3. **Project directory**: Provide project_dir to auto-discover CMakeLists.txt and all source files
+
+    **Use Cases:**
+    - **Multifile projects**: Compile projects with multiple source/header files
+    - **CMake builds**: Test CMake configurations remotely
+    - **Local project testing**: Point at a local directory to build it on Compiler Explorer
+    - **Integration testing**: Build and run multifile programs
+
+    **Parameters:**
+    - compiler: Compiler identifier (e.g., "g132", "clang1600") or friendly name
+    - cmake_source: Inline contents of CMakeLists.txt (mode 1)
+    - cmake_path: Local path to CMakeLists.txt file (mode 2)
+    - project_dir: Local directory containing CMakeLists.txt and source files (mode 3)
+    - files: List of source files. Each entry supports:
+      - Inline: {"filename": "main.cpp", "contents": "..."}
+      - Path: {"path": "/local/path/main.cpp"} (filename derived from path)
+      - Path with rename: {"path": "/local/path/main.cpp", "filename": "renamed.cpp"}
+      Not needed when using project_dir.
+    - language: Programming language (default: "c++")
+    - options: Compiler flags (e.g., "-O2 -Wall")
+    - cmake_args: CMake arguments (e.g., "-DCMAKE_BUILD_TYPE=Release")
+    - execute: If True, run the built binary after compilation
+    - libraries: List of libraries [{"id": "lib", "version": "latest"}] (adds include paths only; linking must be configured in CMakeLists.txt)
+
+    **Returns JSON with:**
+    - success: Boolean indicating if all build steps succeeded
+    - build_steps: Array of build step results (cmake configure + build)
+    - executed: Whether the program was run (only if execute=True)
+    - exit_code: Program exit code (only if execute=True)
+    - stdout: Program output (only if execute=True)
+    - stderr: Program error output (only if execute=True)
+
+    **Important Notes:**
+    - The executable target in CMakeLists.txt should be named `output.s` for the assembly pipeline to work correctly (e.g., `add_executable(output.s main.cpp helper.cpp)`)
+    - Libraries specified via the libraries parameter add include paths but do NOT configure cmake find_package() or link flags. For libraries that need linking, configure it in CMakeLists.txt directly.
+
+    **Example Tool Calls:**
+
+    Inline two-file project:
+    ```
+    cmake_build_tool({
+        "cmake_source": "cmake_minimum_required(VERSION 3.10)\\nproject(example)\\nadd_executable(output.s main.cpp helper.cpp)",
+        "files": [
+            {"filename": "main.cpp", "contents": "#include \\"helper.h\\"\\nint main() { return add(1, 2); }"},
+            {"filename": "helper.cpp", "contents": "#include \\"helper.h\\"\\nint add(int a, int b) { return a + b; }"},
+            {"filename": "helper.h", "contents": "#pragma once\\nint add(int a, int b);"}
+        ],
+        "compiler": "g132",
+        "execute": true
+    })
+    ```
+
+    Using local file paths:
+    ```
+    cmake_build_tool({
+        "cmake_path": "/home/user/project/CMakeLists.txt",
+        "files": [
+            {"path": "/home/user/project/main.cpp"},
+            {"path": "/home/user/project/helper.cpp"},
+            {"path": "/home/user/project/helper.h"}
+        ],
+        "compiler": "g132",
+        "execute": true
+    })
+    ```
+
+    Auto-discover from project directory:
+    ```
+    cmake_build_tool({
+        "project_dir": "/home/user/project",
+        "compiler": "g132",
+        "execute": true
+    })
+    ```
+
+    **When to use vs other tools:**
+    - Use cmake_build_tool for multifile projects or projects requiring CMake
+    - Use compile_and_run_tool for single-file programs
+    - Use compile_check_tool for quick single-file validation
+    """
+    result = await cmake_build(
+        {
+            "cmake_source": cmake_source,
+            "cmake_path": cmake_path,
+            "project_dir": project_dir,
+            "files": files or [],
+            "compiler": compiler,
+            "language": language,
+            "options": options,
+            "cmake_args": cmake_args,
+            "execute": execute,
+            "libraries": libraries,
+        },
+        config,
+    )
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+async def generate_cmake_share_url_tool(
+    compiler: str,
+    cmake_source: str = "",
+    cmake_path: str = "",
+    project_dir: str = "",
+    files: list | None = None,
+    language: str = "c++",
+    options: str = "",
+    cmake_args: str = "",
+    libraries: list | None = None,
+) -> str:
+    """Generate a shareable Compiler Explorer URL for a CMake multifile project.
+
+    This tool creates a Compiler Explorer shortlink that opens a CMake project
+    with all source files, headers, and build configuration pre-loaded in the
+    multifile editor view.
+
+    **Three ways to specify project files (use one):**
+
+    1. **Inline content**: Provide cmake_source + files with "contents" fields
+    2. **Local file paths**: Provide cmake_path + files with "path" fields
+    3. **Project directory**: Provide project_dir to auto-discover CMakeLists.txt and all source files
+
+    **Use Cases:**
+    - **Sharing multifile projects**: Share complete CMake projects with colleagues
+    - **Bug reports**: Create reproducible multifile examples for issue reports
+    - **Local project sharing**: Point at a local directory to generate a shareable link
+    - **Code review**: Link to complete buildable projects for review
+
+    **Parameters:**
+    - compiler: Compiler identifier (e.g., "g132", "clang1600") or friendly name
+    - cmake_source: Inline contents of CMakeLists.txt (mode 1)
+    - cmake_path: Local path to CMakeLists.txt file (mode 2)
+    - project_dir: Local directory containing CMakeLists.txt and source files (mode 3)
+    - files: List of source files. Each entry supports:
+      - Inline: {"filename": "main.cpp", "contents": "..."}
+      - Path: {"path": "/local/path/main.cpp"} (filename derived from path)
+      - Path with rename: {"path": "/local/path/main.cpp", "filename": "renamed.cpp"}
+      Not needed when using project_dir.
+    - language: Programming language (default: "c++")
+    - options: Compiler flags (e.g., "-O2 -Wall")
+    - cmake_args: CMake arguments (e.g., "-DCMAKE_BUILD_TYPE=Release")
+    - libraries: List of libraries [{"id": "lib", "version": "latest"}] (adds include paths only)
+
+    **Returns JSON with:**
+    - url: Shareable Compiler Explorer URL with the CMake project pre-loaded
+
+    **Example Tool Calls:**
+
+    Share from a local project directory:
+    ```
+    generate_cmake_share_url_tool({
+        "project_dir": "/home/user/project",
+        "compiler": "g132"
+    })
+    ```
+
+    Share with local file paths:
+    ```
+    generate_cmake_share_url_tool({
+        "cmake_path": "/home/user/project/CMakeLists.txt",
+        "files": [
+            {"path": "/home/user/project/main.cpp"},
+            {"path": "/home/user/project/helper.cpp"},
+            {"path": "/home/user/project/helper.h"}
+        ],
+        "compiler": "g132"
+    })
+    ```
+
+    Share with inline content:
+    ```
+    generate_cmake_share_url_tool({
+        "cmake_source": "cmake_minimum_required(VERSION 3.10)\\nproject(example)\\nadd_executable(output.s main.cpp helper.cpp)",
+        "files": [
+            {"filename": "main.cpp", "contents": "#include \\"helper.h\\"\\nint main() { return add(1, 2); }"},
+            {"filename": "helper.cpp", "contents": "#include \\"helper.h\\"\\nint add(int a, int b) { return a + b; }"},
+            {"filename": "helper.h", "contents": "#pragma once\\nint add(int a, int b);"}
+        ],
+        "compiler": "g132"
+    })
+    ```
+
+    **When to use vs other tools:**
+    - Use generate_cmake_share_url_tool for sharing multifile CMake projects
+    - Use generate_share_url_tool for sharing single-file programs
+    - Use cmake_build_tool to build and test the project first
+    """
+    result = await generate_cmake_share_url(
+        {
+            "cmake_source": cmake_source,
+            "cmake_path": cmake_path,
+            "project_dir": project_dir,
+            "files": files or [],
+            "compiler": compiler,
+            "language": language,
+            "options": options,
+            "cmake_args": cmake_args,
+            "libraries": libraries,
         },
         config,
     )
