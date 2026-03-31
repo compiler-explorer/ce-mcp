@@ -258,6 +258,9 @@ def _collect_all_stderr(result: Dict[str, Any]) -> str:
 
 async def compile_check(arguments: Dict[str, Any], config: Config) -> Dict[str, Any]:
     """Quick compilation validation."""
+    import logging
+    logger = logging.getLogger(__name__)
+
     source = arguments["source"]
     language = arguments["language"]
     compiler = config.resolve_compiler(arguments["compiler"])
@@ -267,11 +270,16 @@ async def compile_check(arguments: Dict[str, Any], config: Config) -> Dict[str, 
     create_binary = arguments.get("create_binary", False)
     create_object_only = arguments.get("create_object_only", False)
 
+    logger.debug(f"compile_check called with: language={language}, compiler={compiler}, options={options}")
+    logger.debug(f"Source code length: {len(source)} characters")
+
     if extract_args:
         extracted_args = extract_compile_args_from_source(source, language)
         if extracted_args:
             options = f"{options} {extracted_args}".strip()
+            logger.debug(f"Extracted args from source: {extracted_args}")
 
+    logger.debug("Creating CompilerExplorerClient...")
     client = CompilerExplorerClient(config)
 
     try:
@@ -300,6 +308,9 @@ async def compile_check(arguments: Dict[str, Any], config: Config) -> Dict[str, 
         if create_object_only:
             filter_overrides["binaryObject"] = True
 
+        logger.debug(f"About to call client.compile with resolved_libraries count: {len(resolved_libraries)}")
+        logger.debug("Calling CompilerExplorerClient.compile()...")
+
         result = await client.compile(
             source,
             language,
@@ -308,6 +319,9 @@ async def compile_check(arguments: Dict[str, Any], config: Config) -> Dict[str, 
             libraries=resolved_libraries,
             filter_overrides=filter_overrides if filter_overrides else None,
         )
+
+        logger.debug(f"client.compile() returned, processing result...")
+        logger.debug(f"Result keys: {list(result.keys()) if result else 'None'}")
     finally:
         await client.close()
 
